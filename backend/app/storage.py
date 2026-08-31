@@ -2,9 +2,7 @@ import json
 import sqlite3
 
 from datetime import datetime, timezone
-
 from pathlib import Path
-
 from typing import Any, Dict, List, Optional
 
 
@@ -179,10 +177,7 @@ def initialize_database() -> None:
                 column_type,
             ) in new_columns.items():
 
-                if (
-                    column_name
-                    not in column_names
-                ):
+                if column_name not in column_names:
 
                     connection.execute(
                         f"""
@@ -194,7 +189,14 @@ def initialize_database() -> None:
                     )
 
             # ---------------------------------------------
-            # OLD FEATURE COLUMNS
+            # LEGACY FEATURE COLUMNS
+            # ---------------------------------------------
+            #
+            # These are retained only for compatibility
+            # with older databases.
+            #
+            # They are NOT used as the new model's
+            # feature definition.
             # ---------------------------------------------
 
             feature_columns = [
@@ -466,7 +468,8 @@ def save_measurement(
     ).isoformat()
 
     features_json = json.dumps(
-        features
+        features,
+        allow_nan=True,
     )
 
     with get_connection() as connection:
@@ -869,6 +872,17 @@ def set_measurement_discarded(
 # =========================================================
 # TRAINING DATA
 # =========================================================
+#
+# IMPORTANT:
+#
+# Only recordings that have received explicit user
+# feedback are returned.
+#
+# The old Task 1 CSV is NOT used here.
+#
+# The current application therefore learns from
+# newly collected, user-confirmed measurements.
+# =========================================================
 
 
 def get_training_measurements() -> List[Dict[str, Any]]:
@@ -917,6 +931,13 @@ def get_training_measurements() -> List[Dict[str, Any]]:
         except (
             TypeError,
             json.JSONDecodeError,
+        ):
+
+            continue
+
+        if not isinstance(
+            features,
+            dict,
         ):
 
             continue

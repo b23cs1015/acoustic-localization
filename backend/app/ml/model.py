@@ -6,18 +6,76 @@ import numpy as np
 class AcousticModel:
 
     """
-    Acoustic localization model.
+    Acoustic fingerprint based localization model.
 
-    Current behaviour:
+    IMPORTANT DESIGN DECISION
+    -------------------------
 
-    1. If feedback data exists, use the
-       feedback-trained nearest-neighbour model.
+    Task 1 was an exploratory experiment.
 
-    2. Otherwise use the original baseline.
+    Its CSV data is NOT treated as the final training
+    dataset because those room conditions cannot be
+    reliably recreated.
 
-    This keeps the prototype functional before
-    the final trained research model is integrated.
+    Instead, the current application learns from:
+
+        recording
+            ↓
+        acoustic feature extraction
+            ↓
+        acoustic fingerprint
+            ↓
+        user-confirmed position
+            ↓
+        feedback training set
+
+    Each confirmed recording becomes one example of
+    the acoustic fingerprint of a position.
+
+    Prediction uses normalized nearest-neighbour voting
+    over the recordings collected by the current system.
     """
+
+    # =====================================================
+    # FEATURE DEFINITION
+    # =====================================================
+    #
+    # These names MUST match features.py.
+    #
+    # They represent the acoustic fingerprint of a
+    # recording.
+    # =====================================================
+
+    FEATURE_NAMES = [
+
+        "rms_dB",
+
+        "peak_dB",
+
+        "spectral_centroid_Hz",
+
+        "spectral_bandwidth_Hz",
+
+        "spectral_rolloff_Hz",
+
+        "spectral_flatness",
+
+        "zero_crossing_rate",
+
+        "15_16kHz_dB",
+
+        "16_17kHz_dB",
+
+        "17_18kHz_dB",
+
+        "18_19kHz_dB",
+
+        "19_20kHz_dB",
+
+    ]
+
+    # Number of neighbours used for voting.
+    K_NEIGHBORS = 5
 
     def __init__(
         self,
@@ -25,6 +83,7 @@ class AcousticModel:
     ) -> None:
 
         self.model = None
+
         self.model_path = model_path
 
         self.training_features: List[
@@ -34,6 +93,54 @@ class AcousticModel:
         self.training_labels: List[
             str
         ] = []
+
+    # =====================================================
+    # FEATURE VECTOR
+    # =====================================================
+
+    def _features_to_vector(
+        self,
+        features: Dict[str, float],
+    ) -> np.ndarray:
+
+        """
+        Convert the acoustic feature dictionary into
+        one deterministic numerical fingerprint.
+
+        Missing or invalid values are represented as zero
+        temporarily and handled again during normalization.
+        """
+
+        values = []
+
+        for feature_name in self.FEATURE_NAMES:
+
+            value = features.get(
+                feature_name,
+                0.0,
+            )
+
+            try:
+
+                value = float(value)
+
+            except (
+                TypeError,
+                ValueError,
+            ):
+
+                value = 0.0
+
+            if not np.isfinite(value):
+
+                value = 0.0
+
+            values.append(value)
+
+        return np.asarray(
+            values,
+            dtype=np.float32,
+        )
 
     # =====================================================
     # FEEDBACK LEARNING
@@ -50,11 +157,15 @@ class AcousticModel:
         )
 
         self.training_features = []
+
         self.training_labels = []
 
         for item in training_data:
 
-            features = item["features"]
+            features = item.get(
+                "features",
+                {},
+            )
 
             vector = self._features_to_vector(
                 features
@@ -68,85 +179,6 @@ class AcousticModel:
                 f"Position {item['position_number']}"
             )
 
-    def _features_to_vector(
-        self,
-        features: Dict[str, float],
-    ) -> np.ndarray:
-
-        """
-        Keep feature ordering deterministic.
-        """
-
-        return np.array(
-            [
-                features.get(
-                    "rms_mean",
-                    0.0,
-                ),
-
-                features.get(
-                    "rms_max",
-                    0.0,
-                ),
-
-                features.get(
-                    "peak_amplitude",
-                    0.0,
-                ),
-
-                features.get(
-                    "spectral_centroid",
-                    0.0,
-                ),
-
-                features.get(
-                    "spectral_bandwidth",
-                    0.0,
-                ),
-
-                features.get(
-                    "spectral_rolloff",
-                    0.0,
-                ),
-
-                features.get(
-                    "spectral_flatness",
-                    0.0,
-                ),
-
-                features.get(
-                    "zero_crossing_rate",
-                    0.0,
-                ),
-
-                features.get(
-                    "energy_15_16khz",
-                    0.0,
-                ),
-
-                features.get(
-                    "energy_16_17khz",
-                    0.0,
-                ),
-
-                features.get(
-                    "energy_17_18khz",
-                    0.0,
-                ),
-
-                features.get(
-                    "energy_18_19khz",
-                    0.0,
-                ),
-
-                features.get(
-                    "energy_19_20khz",
-                    0.0,
-                ),
-            ],
-            dtype=np.float32,
-        )
-
     # =====================================================
     # PREDICTION
     # =====================================================
@@ -156,23 +188,37 @@ class AcousticModel:
         features: Dict[str, float],
     ) -> Tuple[str, Optional[float]]:
 
-        # ---------------------------------------------
-        # Feedback-trained prediction
-        # ---------------------------------------------
+        # -------------------------------------------------
+        # No confirmed training data
+        # -------------------------------------------------
 
-        if self.training_features:
+        if not self.training_features:
 
-            return self._feedback_prediction(
-                features
+            return (
+                "Insufficient training data",
+                None,
             )
 
-        # ---------------------------------------------
-        # Original baseline
-        # ---------------------------------------------
-
-        return self._baseline_prediction(
+        return self._feedback_prediction(
             features
         )
+
+    # =====================================================
+    # FINGERPRINT DISTANCE
+    # =====================================================
+
+    def _prepare_training_matrix(
+        self,
+    ) -> np.ndarray:
+
+        return np.asarray(
+            self.training_features,
+            dtype=np.float32,
+        )
+
+    # =====================================================
+    # FEEDBACK PREDICTION
+    # =====================================================
 
     def _feedback_prediction(
         self,
@@ -183,13 +229,21 @@ class AcousticModel:
             features
         )
 
-        training = np.array(
-            self.training_features,
-            dtype=np.float32,
+        training = (
+            self._prepare_training_matrix()
         )
 
-        # Normalize each feature dimension so
-        # large-valued features do not dominate.
+        # -------------------------------------------------
+        # Feature-wise normalization
+        # -------------------------------------------------
+        #
+        # Spectral centroid is measured in Hz while
+        # flatness and ZCR are much smaller numbers.
+        #
+        # Without normalization, large numerical features
+        # would dominate the distance calculation.
+        # -------------------------------------------------
+
         mean = np.mean(
             training,
             axis=0,
@@ -200,7 +254,9 @@ class AcousticModel:
             axis=0,
         )
 
-        std[std < 1e-8] = 1.0
+        std[
+            std < 1e-8
+        ] = 1.0
 
         normalized_training = (
             training - mean
@@ -210,27 +266,114 @@ class AcousticModel:
             current - mean
         ) / std
 
+        # -------------------------------------------------
+        # Euclidean fingerprint distance
+        # -------------------------------------------------
+
         distances = np.linalg.norm(
             normalized_training
             - normalized_current,
             axis=1,
         )
 
-        nearest_index = int(
-            np.argmin(distances)
+        # -------------------------------------------------
+        # Sort neighbours
+        # -------------------------------------------------
+
+        sorted_indices = np.argsort(
+            distances
         )
 
-        prediction = self.training_labels[
-            nearest_index
+        k = min(
+            self.K_NEIGHBORS,
+            len(sorted_indices),
+        )
+
+        neighbour_indices = (
+            sorted_indices[:k]
+        )
+
+        # -------------------------------------------------
+        # Weighted voting
+        # -------------------------------------------------
+        #
+        # Closer acoustic fingerprints receive more weight.
+        #
+        # This is better than simply taking the single
+        # closest recording when multiple recordings for
+        # a position are available.
+        # -------------------------------------------------
+
+        votes: Dict[str, float] = {}
+
+        for index in neighbour_indices:
+
+            label = self.training_labels[
+                int(index)
+            ]
+
+            distance = float(
+                distances[index]
+            )
+
+            weight = 1.0 / (
+                distance + 1e-6
+            )
+
+            votes[label] = (
+                votes.get(
+                    label,
+                    0.0,
+                )
+                + weight
+            )
+
+        # -------------------------------------------------
+        # Select winning position
+        # -------------------------------------------------
+
+        prediction = max(
+            votes,
+            key=votes.get,
+        )
+
+        total_vote = sum(
+            votes.values()
+        )
+
+        winning_vote = votes[
+            prediction
         ]
 
-        # Convert distance into a simple
-        # prototype confidence estimate.
+        if total_vote <= 0:
+
+            confidence = 0.0
+
+        else:
+
+            confidence = (
+                winning_vote
+                / total_vote
+            )
+
+        # -------------------------------------------------
+        # Distance-aware confidence
+        # -------------------------------------------------
+        #
+        # Voting confidence alone can be misleading when
+        # all fingerprints are far away.
+        #
+        # We therefore also consider the nearest acoustic
+        # fingerprint distance.
+        # -------------------------------------------------
+
         nearest_distance = float(
-            distances[nearest_index]
+            distances[
+                neighbour_indices[0]
+            ]
         )
 
-        confidence = float(
+        distance_confidence = (
             1.0
             / (
                 1.0
@@ -238,45 +381,20 @@ class AcousticModel:
             )
         )
 
-        confidence = max(
-            0.0,
-            min(
-                1.0,
+        confidence = (
+            0.7 * confidence
+            + 0.3 * distance_confidence
+        )
+
+        confidence = float(
+            np.clip(
                 confidence,
-            ),
+                0.0,
+                1.0,
+            )
         )
 
-        return prediction, confidence
-
-    # =====================================================
-    # ORIGINAL BASELINE
-    # =====================================================
-
-    def _baseline_prediction(
-        self,
-        features: Dict[str, float],
-    ) -> Tuple[str, Optional[float]]:
-
-        energy = np.mean(
-            [
-                value
-                for key, value in features.items()
-                if key.startswith(
-                    "energy_"
-                )
-            ]
+        return (
+            prediction,
+            confidence,
         )
-
-        if energy > -20:
-
-            prediction = "Position 1"
-
-        elif energy > -35:
-
-            prediction = "Position 2"
-
-        else:
-
-            prediction = "Position 3"
-
-        return prediction, None

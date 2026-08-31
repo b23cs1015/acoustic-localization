@@ -2,13 +2,20 @@ import {
   useState
 } from "react";
 
-import MeasurementPanel from "./components/MeasurementPanel";
+import MeasurementPanel
+  from "./components/MeasurementPanel";
 
-import StatusCard from "./components/StatusCard";
+import StatusCard
+  from "./components/StatusCard";
 
-import ResultCard from "./components/ResultCard";
+import ResultCard
+  from "./components/ResultCard";
 
-import MeasurementHistory from "./components/MeasurementHistory";
+import MeasurementHistory
+  from "./components/MeasurementHistory";
+
+import ResearchDashboard
+  from "./components/ResearchDashboard";
 
 import type {
   MeasurementStatus,
@@ -17,6 +24,7 @@ import type {
 
 
 function App() {
+
 
   const [
     status,
@@ -42,9 +50,11 @@ function App() {
 
   /*
    * Changing this number causes
-   * MeasurementHistory to fetch
-   * the latest data from SQLite.
+   * MeasurementHistory and
+   * ResearchDashboard to fetch
+   * the latest data.
    */
+
   const [
     historyRefreshKey,
     setHistoryRefreshKey
@@ -54,7 +64,7 @@ function App() {
   function handleMeasurementComplete() {
 
     setHistoryRefreshKey(
-      (current) =>
+      current =>
         current + 1
     );
 
@@ -62,7 +72,14 @@ function App() {
 
 
   return (
+
     <main className="app">
+
+
+      {/* =================================================
+          HERO
+      ================================================= */}
+
 
       <section className="hero">
 
@@ -91,7 +108,13 @@ function App() {
       </section>
 
 
+      {/* =================================================
+          MEASUREMENT WORKSPACE
+      ================================================= */}
+
+
       <section className="workspace">
+
 
         <StatusCard
           status={status}
@@ -99,18 +122,23 @@ function App() {
 
 
         <MeasurementPanel
+
           onStatusChange={
             setStatus
           }
+
           onResult={
             setResult
           }
+
           onError={
             setError
           }
+
           onMeasurementComplete={
             handleMeasurementComplete
           }
+
         />
 
 
@@ -142,7 +170,27 @@ function App() {
           }
         />
 
+
       </section>
+
+
+      {/* =================================================
+          RESEARCH DASHBOARD
+      ================================================= */}
+
+
+      <ResearchDashboard
+
+        refreshKey={
+          historyRefreshKey
+        }
+
+      />
+
+
+      {/* =================================================
+          FOOTER
+      ================================================= */}
 
 
       <footer>
@@ -157,6 +205,7 @@ function App() {
         </span>
 
       </footer>
+
 
     </main>
   );

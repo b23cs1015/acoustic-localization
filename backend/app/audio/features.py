@@ -9,150 +9,346 @@ def extract_features(
     sample_rate: int,
 ) -> Dict[str, float]:
 
-    features: Dict[str, float] = {}
-
     if len(audio) == 0:
+
         raise ValueError(
             "Audio recording is empty."
         )
 
-    # -----------------------------
-    # Time-domain features
-    # -----------------------------
+    # =========================================================
+    # REMOVE DC OFFSET
+    # =========================================================
 
-    rms = librosa.feature.rms(
-        y=audio
+    audio = (
+        audio
+        - np.mean(audio)
     )
 
-    features["rms_mean"] = float(
-        np.mean(rms)
+    duration = (
+        len(audio)
+        /
+        sample_rate
     )
 
-    features["rms_max"] = float(
-        np.max(rms)
+    # =========================================================
+    # BASIC SIGNAL FEATURES
+    # =========================================================
+
+    rms = np.sqrt(
+        np.mean(
+            audio ** 2
+        )
     )
 
-    features["peak_amplitude"] = float(
-        np.max(np.abs(audio))
+    peak = np.max(
+        np.abs(audio)
     )
 
-    # -----------------------------
-    # Spectral features
-    # -----------------------------
+    rms_db = (
+        20
+        *
+        np.log10(
+            rms + 1e-12
+        )
+    )
 
-    spectral_centroid = (
+    peak_db = (
+        20
+        *
+        np.log10(
+            peak + 1e-12
+        )
+    )
+
+    # =========================================================
+    # STFT
+    # =========================================================
+
+    n_fft = 4096
+    hop_length = 1024
+
+    spectrum_complex = librosa.stft(
+        audio,
+        n_fft=n_fft,
+        hop_length=hop_length,
+    )
+
+    spectrum = np.abs(
+        spectrum_complex
+    )
+
+    frequencies = (
+        librosa.fft_frequencies(
+            sr=sample_rate,
+            n_fft=n_fft,
+        )
+    )
+
+    # =========================================================
+    # SPECTRAL FEATURES
+    # =========================================================
+
+    centroid = (
         librosa.feature.spectral_centroid(
-            y=audio,
+            S=spectrum,
             sr=sample_rate,
         )
     )
 
-    spectral_bandwidth = (
+    bandwidth = (
         librosa.feature.spectral_bandwidth(
-            y=audio,
+            S=spectrum,
             sr=sample_rate,
         )
     )
 
-    spectral_rolloff = (
+    rolloff = (
         librosa.feature.spectral_rolloff(
-            y=audio,
+            S=spectrum,
             sr=sample_rate,
             roll_percent=0.85,
         )
     )
 
-    spectral_flatness = (
+    flatness = (
         librosa.feature.spectral_flatness(
-            y=audio,
+            S=spectrum,
         )
     )
 
-    zero_crossing_rate = (
+    zcr = (
         librosa.feature.zero_crossing_rate(
-            y=audio,
-        )
-    )
-
-    features["spectral_centroid"] = float(
-        np.mean(spectral_centroid)
-    )
-
-    features["spectral_bandwidth"] = float(
-        np.mean(spectral_bandwidth)
-    )
-
-    features["spectral_rolloff"] = float(
-        np.mean(spectral_rolloff)
-    )
-
-    features["spectral_flatness"] = float(
-        np.mean(spectral_flatness)
-    )
-
-    features["zero_crossing_rate"] = float(
-        np.mean(zero_crossing_rate)
-    )
-
-    # -----------------------------
-    # Frequency-band energy
-    # -----------------------------
-
-    for start_khz in range(
-        15,
-        20,
-    ):
-        end_khz = start_khz + 1
-
-        band_energy = frequency_band_energy(
             audio,
-            sample_rate,
-            start_khz * 1000,
-            end_khz * 1000,
+            hop_length=hop_length,
         )
-
-        features[
-            f"energy_{start_khz}_{end_khz}khz"
-        ] = band_energy
-
-    return features
-
-
-def frequency_band_energy(
-    audio: np.ndarray,
-    sample_rate: int,
-    low_frequency: float,
-    high_frequency: float,
-) -> float:
-
-    spectrum = np.fft.rfft(audio)
-
-    frequencies = np.fft.rfftfreq(
-        len(audio),
-        d=1 / sample_rate,
     )
 
-    mask = (
-        (frequencies >= low_frequency)
-        & (
+    # =========================================================
+    # 15–20 kHz ULTRASONIC ENERGY
+    # =========================================================
+
+    ultrasonic_mask = (
+        (frequencies >= 15000)
+        &
+        (
             frequencies
-            < high_frequency
+            <= min(
+                20000,
+                sample_rate / 2,
+            )
         )
     )
 
-    if not np.any(mask):
-        return 0.0
+    if np.any(
+        ultrasonic_mask
+    ):
 
-    magnitude = np.abs(
-        spectrum[mask]
-    )
-
-    energy = np.mean(
-        magnitude ** 2
-    )
-
-    return float(
-        10 * np.log10(
-            energy + 1e-12
+        ultrasonic_power = np.mean(
+            spectrum[
+                ultrasonic_mask
+            ] ** 2
         )
+
+        ultrasonic_db = (
+            10
+            *
+            np.log10(
+                ultrasonic_power
+                + 1e-12
+            )
+        )
+
+        ultrasonic_peak = np.max(
+            spectrum[
+                ultrasonic_mask
+            ] ** 2
+        )
+
+        ultrasonic_peak_db = (
+            10
+            *
+            np.log10(
+                ultrasonic_peak
+                + 1e-12
+            )
+        )
+
+    else:
+
+        ultrasonic_db = np.nan
+        ultrasonic_peak_db = np.nan
+
+    # =========================================================
+    # FREQUENCY FINGERPRINT
+    # =========================================================
+
+    bands = [
+        (15000, 16000),
+        (16000, 17000),
+        (17000, 18000),
+        (18000, 19000),
+        (19000, 20000),
+    ]
+
+    band_features: Dict[str, float] = {}
+
+    for low, high in bands:
+
+        mask = (
+            (frequencies >= low)
+            &
+            (frequencies < high)
+        )
+
+        if np.any(mask):
+
+            power = np.mean(
+                spectrum[mask] ** 2
+            )
+
+            db = (
+                10
+                *
+                np.log10(
+                    power + 1e-12
+                )
+            )
+
+        else:
+
+            db = np.nan
+
+        band_features[
+            f"{low // 1000}_{high // 1000}kHz_dB"
+        ] = float(db)
+
+    # =========================================================
+    # MFCC
+    # =========================================================
+    #
+    # Keep extracting these because they are useful for
+    # future speech/environment experiments.
+    #
+    # The current chirp localization fingerprint does
+    # not depend on them.
+    # =========================================================
+
+    mfcc = librosa.feature.mfcc(
+        y=audio,
+        sr=sample_rate,
+        n_mfcc=13,
+        n_fft=2048,
+        hop_length=512,
     )
+
+    mfcc_features: Dict[str, float] = {}
+
+    for i in range(
+        mfcc.shape[0]
+    ):
+
+        mfcc_features[
+            f"MFCC_{i + 1}_mean"
+        ] = float(
+            np.mean(
+                mfcc[i]
+            )
+        )
+
+        mfcc_features[
+            f"MFCC_{i + 1}_std"
+        ] = float(
+            np.std(
+                mfcc[i]
+            )
+        )
+
+    # =========================================================
+    # FINAL FEATURE DICTIONARY
+    # =========================================================
+
+    result: Dict[str, float] = {
+
+        "sample_rate":
+            float(sample_rate),
+
+        "duration_s":
+            float(duration),
+
+        "rms":
+            float(rms),
+
+        "rms_dB":
+            float(rms_db),
+
+        "peak":
+            float(peak),
+
+        "peak_dB":
+            float(peak_db),
+
+        "spectral_centroid_Hz":
+            float(
+                np.mean(
+                    centroid
+                )
+            ),
+
+        "spectral_bandwidth_Hz":
+            float(
+                np.mean(
+                    bandwidth
+                )
+            ),
+
+        "spectral_rolloff_Hz":
+            float(
+                np.mean(
+                    rolloff
+                )
+            ),
+
+        "spectral_flatness":
+            float(
+                np.mean(
+                    flatness
+                )
+            ),
+
+        "zero_crossing_rate":
+            float(
+                np.mean(
+                    zcr
+                )
+            ),
+
+        "15_20kHz_dB":
+            (
+                float(ultrasonic_db)
+                if np.isfinite(
+                    ultrasonic_db
+                )
+                else np.nan
+            ),
+
+        "15_20kHz_peak_dB":
+            (
+                float(
+                    ultrasonic_peak_db
+                )
+                if np.isfinite(
+                    ultrasonic_peak_db
+                )
+                else np.nan
+            ),
+    }
+
+    result.update(
+        band_features
+    )
+
+    result.update(
+        mfcc_features
+    )
+
+    return result

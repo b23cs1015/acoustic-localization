@@ -7,8 +7,11 @@ export type MeasurementStatus =
   | "error";
 
 
-export interface PredictionResult {
+/* =========================================================
+   PREDICTION
+========================================================= */
 
+export interface PredictionResult {
   prediction: string;
 
   confidence: number | null;
@@ -22,7 +25,6 @@ export interface PredictionResult {
 
 
 export interface AnalyzeResponse {
-
   success: boolean;
 
   measurement_id: number;
@@ -31,8 +33,11 @@ export interface AnalyzeResponse {
 }
 
 
-export interface Position {
+/* =========================================================
+   POSITIONS
+========================================================= */
 
+export interface Position {
   id: number;
 
   position_number: number;
@@ -43,8 +48,18 @@ export interface Position {
 }
 
 
-export interface Measurement {
+export interface PositionsResponse {
+  success: boolean;
 
+  positions: Position[];
+}
+
+
+/* =========================================================
+   MEASUREMENTS
+========================================================= */
+
+export interface Measurement {
   id: number;
 
   timestamp: string;
@@ -82,7 +97,6 @@ export interface Measurement {
 
 
 export interface MeasurementsResponse {
-
   success: boolean;
 
   count: number;
@@ -91,9 +105,73 @@ export interface MeasurementsResponse {
 }
 
 
-export interface PositionsResponse {
+/* =========================================================
+   ANALYTICS
+========================================================= */
 
+/*
+ * The analytics backend can evolve while the research
+ * experiments are being developed. These interfaces therefore
+ * intentionally allow additional fields.
+ */
+
+export interface AnalyticsSummary {
+  [key: string]: unknown;
+}
+
+
+export interface AnalyticsFeatureData {
+  [key: string]: unknown;
+}
+
+
+export interface AnalyticsPositionData {
+  [key: string]: unknown;
+}
+
+
+export interface AnalyticsDistanceData {
+  [key: string]: unknown;
+}
+
+
+export interface AnalyticsObjectData {
+  [key: string]: unknown;
+}
+
+
+export interface AnalyticsPCAData {
+  [key: string]: unknown;
+}
+
+
+export interface AnalyticsResponse<T> {
   success: boolean;
 
-  positions: Position[];
+  [key: string]: unknown;
+}
+
+
+/* =========================================================
+   DASHBOARD TYPES
+========================================================= */
+
+export interface DashboardData {
+  summary: AnalyticsSummary | null;
+
+  features: AnalyticsFeatureData | null;
+
+  position: AnalyticsPositionData | null;
+
+  distance: AnalyticsDistanceData | null;
+
+  object: AnalyticsObjectData | null;
+
+  pca: AnalyticsPCAData | null;
+
+  measurements: Measurement[];
+
+  loading: boolean;
+
+  error: string;
 }

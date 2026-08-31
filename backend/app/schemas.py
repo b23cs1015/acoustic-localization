@@ -25,6 +25,8 @@ class AnalyzeResponse(BaseModel):
 
     success: bool
 
+    measurement_id: int
+
     result: PredictionResult
 
 

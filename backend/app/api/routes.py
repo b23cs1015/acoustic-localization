@@ -3,6 +3,15 @@ import tempfile
 
 from pathlib import Path
 
+from ..analytics import (
+    get_distance_analysis,
+    get_feature_data,
+    get_object_analysis,
+    get_pca_analysis,
+    get_position_analysis,
+    get_summary,
+)
+
 from fastapi import (
     APIRouter,
     File,
@@ -68,6 +77,77 @@ async def health():
     return {
         "status": "ok",
         "service": "acoustic-localization",
+    }
+
+
+# =========================================================
+# ANALYTICS DASHBOARD
+# =========================================================
+
+
+@router.get(
+    "/analytics/summary",
+)
+async def analytics_summary():
+
+    return {
+        "success": True,
+        "summary": get_summary(),
+    }
+
+
+@router.get(
+    "/analytics/features",
+)
+async def analytics_features():
+
+    return {
+        "success": True,
+        **get_feature_data(),
+    }
+
+
+@router.get(
+    "/analytics/position",
+)
+async def analytics_position():
+
+    return {
+        "success": True,
+        **get_position_analysis(),
+    }
+
+
+@router.get(
+    "/analytics/distance",
+)
+async def analytics_distance():
+
+    return {
+        "success": True,
+        **get_distance_analysis(),
+    }
+
+
+@router.get(
+    "/analytics/object",
+)
+async def analytics_object():
+
+    return {
+        "success": True,
+        **get_object_analysis(),
+    }
+
+
+@router.get(
+    "/analytics/pca",
+)
+async def analytics_pca():
+
+    return {
+        "success": True,
+        **get_pca_analysis(),
     }
 
 
@@ -149,7 +229,7 @@ async def analyze_audio(
         )
 
         # ---------------------------------------------
-        # Extract acoustic features
+        # Extract acoustic fingerprint
         # ---------------------------------------------
 
         features = extract_features(
@@ -159,6 +239,12 @@ async def analyze_audio(
 
         # ---------------------------------------------
         # ML prediction
+        # ---------------------------------------------
+        #
+        # The predictor only uses previously confirmed
+        # recordings from the current application.
+        #
+        # Task 1 CSV data is not loaded here.
         # ---------------------------------------------
 
         prediction, confidence = (
@@ -205,7 +291,7 @@ async def analyze_audio(
         # Save measurement metadata
         # ---------------------------------------------
 
-        save_measurement(
+        measurement_id = save_measurement(
             recording_filename=recording_filename,
             prediction=prediction,
             confidence=confidence,
@@ -228,6 +314,7 @@ async def analyze_audio(
 
         return AnalyzeResponse(
             success=True,
+            measurement_id=measurement_id,
             result=result,
         )
 
@@ -360,10 +447,6 @@ async def edit_measurement(
     request: UpdateMeasurementRequest,
 ):
 
-    # ---------------------------------------------
-    # Check measurement exists
-    # ---------------------------------------------
-
     existing_measurement = get_measurement(
         measurement_id
     )
@@ -374,10 +457,6 @@ async def edit_measurement(
             status_code=404,
             detail="Measurement not found.",
         )
-
-    # ---------------------------------------------
-    # Check position exists
-    # ---------------------------------------------
 
     if request.position_id is not None:
 
@@ -391,10 +470,6 @@ async def edit_measurement(
                 status_code=404,
                 detail="Position not found.",
             )
-
-    # ---------------------------------------------
-    # Update
-    # ---------------------------------------------
 
     result = update_measurement(
         measurement_id=measurement_id,
@@ -477,6 +552,19 @@ async def measurement_feedback(
             detail="Measurement not found.",
         )
 
+    # ---------------------------------------------
+    # IMPORTANT:
+    #
+    # Rebuild the in-memory fingerprint model
+    # immediately after new feedback is saved.
+    #
+    # This means the next recording can use the
+    # newly confirmed example without restarting
+    # the server.
+    # ---------------------------------------------
+
+    predictor.refresh_learning()
+
     return {
         "success": True,
         "measurement": result,
@@ -518,6 +606,13 @@ async def discard_measurement(
             detail="Measurement not found.",
         )
 
+    # ---------------------------------------------
+    # A discarded recording must no longer influence
+    # the learned acoustic fingerprints.
+    # ---------------------------------------------
+
+    predictor.refresh_learning()
+
     return {
         "success": True,
         "measurement": result,
@@ -558,6 +653,12 @@ async def restore_measurement(
             status_code=404,
             detail="Measurement not found.",
         )
+
+    # ---------------------------------------------
+    # Rebuild the learned fingerprint set.
+    # ---------------------------------------------
+
+    predictor.refresh_learning()
 
     return {
         "success": True,

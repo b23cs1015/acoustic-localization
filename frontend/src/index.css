@@ -13,9 +13,11 @@
     sans-serif;
 
   color: #171717;
+
   background: #fafaf8;
 
   font-synthesis: none;
+
   text-rendering: optimizeLegibility;
 }
 
@@ -47,35 +49,37 @@ a {
 }
 
 
-/* =========================================
+/* =========================================================
    APP
-   ========================================= */
+========================================================= */
 
 .app {
   width:
     min(
-      900px,
+      1100px,
       calc(100% - 32px)
     );
 
-  margin: 0 auto;
+  margin:
+    0 auto;
 
   min-height: 100vh;
 
   display: flex;
+
   flex-direction: column;
 }
 
 
-/* =========================================
+/* =========================================================
    HERO
-   ========================================= */
+========================================================= */
 
 .hero {
   padding:
     90px
     0
-    50px;
+    65px;
 }
 
 
@@ -109,7 +113,7 @@ a {
 
 
 .intro {
-  max-width: 620px;
+  max-width: 650px;
 
   margin-top: 32px;
 
@@ -121,18 +125,54 @@ a {
 }
 
 
-/* =========================================
+/* =========================================================
    WORKSPACE
-   ========================================= */
+========================================================= */
 
 .workspace {
   width: 100%;
 }
 
 
-/* =========================================
+.workspace-heading {
+  padding:
+    0
+    0
+    24px;
+}
+
+
+.workspace-heading h2 {
+  margin: 8px 0 0;
+
+  font-size:
+    clamp(
+      32px,
+      5vw,
+      48px
+    );
+
+  letter-spacing: -0.04em;
+}
+
+
+.workspace-heading p {
+  max-width: 650px;
+
+  margin:
+    14px
+    0
+    0;
+
+  color: #6c6c66;
+
+  line-height: 1.6;
+}
+
+
+/* =========================================================
    STATUS
-   ========================================= */
+========================================================= */
 
 .status-card {
   min-height: 58px;
@@ -157,6 +197,7 @@ a {
 
 .status-dot {
   width: 9px;
+
   height: 9px;
 
   flex: 0 0 auto;
@@ -167,29 +208,25 @@ a {
 }
 
 
-.status-recording
-.status-dot,
-.status-processing
-.status-dot {
+.status-recording .status-dot,
+.status-processing .status-dot {
   background: #171717;
 }
 
 
-.status-success
-.status-dot {
+.status-success .status-dot {
   background: #2d7d46;
 }
 
 
-.status-error
-.status-dot {
+.status-error .status-dot {
   background: #b42318;
 }
 
 
-/* =========================================
+/* =========================================================
    MEASUREMENT PANEL
-   ========================================= */
+========================================================= */
 
 .measurement-panel {
   margin-top: 16px;
@@ -260,9 +297,9 @@ a {
 }
 
 
-/* =========================================
+/* =========================================================
    ERROR
-   ========================================= */
+========================================================= */
 
 .error-card {
   margin-top: 16px;
@@ -294,9 +331,9 @@ a {
 }
 
 
-/* =========================================
-   RESULT CARD
-   ========================================= */
+/* =========================================================
+   RESULT
+========================================================= */
 
 .result-card {
   margin-top: 16px;
@@ -354,9 +391,9 @@ a {
 }
 
 
-/* =========================================
+/* =========================================================
    RESULT META
-   ========================================= */
+========================================================= */
 
 .result-meta {
   display: grid;
@@ -406,9 +443,9 @@ a {
 }
 
 
-/* =========================================
+/* =========================================================
    FEATURE SECTION
-   ========================================= */
+========================================================= */
 
 .feature-section {
   margin-top: 32px;
@@ -467,12 +504,713 @@ a {
 }
 
 
-/* =========================================
+/* =========================================================
+   RESEARCH DASHBOARD
+========================================================= */
+
+.research-dashboard {
+  margin-top: 100px;
+
+  padding-top: 70px;
+
+  border-top:
+    1px solid
+    #dcdcd6;
+}
+
+
+.dashboard-title-row {
+  display: flex;
+
+  align-items: flex-end;
+
+  justify-content: space-between;
+
+  gap: 32px;
+
+  margin-bottom: 32px;
+}
+
+
+.dashboard-eyebrow {
+  display: block;
+
+  color: #73736d;
+
+  font-size: 11px;
+
+  font-weight: 750;
+
+  letter-spacing: 0.13em;
+
+  text-transform: uppercase;
+}
+
+
+.dashboard-title-row h2 {
+  margin:
+    10px
+    0
+    0;
+
+  font-size:
+    clamp(
+      38px,
+      6vw,
+      62px
+    );
+
+  line-height: 0.95;
+
+  letter-spacing: -0.045em;
+}
+
+
+.dashboard-title-row p {
+  max-width: 650px;
+
+  margin:
+    18px
+    0
+    0;
+
+  color: #6c6c66;
+
+  line-height: 1.6;
+}
+
+
+.dashboard-refresh {
+  flex: 0 0 auto;
+
+  padding:
+    11px
+    16px;
+
+  border:
+    1px solid
+    #d7d7d1;
+
+  background: white;
+
+  color: #171717;
+
+  font-size: 13px;
+
+  font-weight: 650;
+
+  cursor: pointer;
+}
+
+
+.dashboard-refresh:hover {
+  background: #f6f6f3;
+}
+
+
+.dashboard-refresh:disabled {
+  opacity: 0.5;
+
+  cursor: wait;
+}
+
+
+/* =========================================================
+   DASHBOARD ERROR
+========================================================= */
+
+.dashboard-error {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 5px;
+
+  margin-bottom: 16px;
+
+  padding: 18px;
+
+  border:
+    1px solid
+    #ead2cf;
+
+  background: #fff8f7;
+}
+
+
+.dashboard-error strong {
+  font-size: 13px;
+}
+
+
+.dashboard-error span {
+  color: #6c6c66;
+
+  font-size: 13px;
+
+  line-height: 1.5;
+}
+
+
+.dashboard-loading {
+  padding: 40px;
+
+  border:
+    1px solid
+    #e7e7e2;
+
+  background: white;
+
+  color: #6c6c66;
+}
+
+
+/* =========================================================
+   DASHBOARD CARDS
+========================================================= */
+
+.dashboard-cards {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      4,
+      minmax(0, 1fr)
+    );
+
+  gap: 1px;
+
+  border:
+    1px solid
+    #e7e7e2;
+
+  background: #e7e7e2;
+}
+
+
+.dashboard-card {
+  min-height: 165px;
+
+  padding: 22px;
+
+  background: white;
+
+  display: flex;
+
+  flex-direction: column;
+
+  justify-content: space-between;
+}
+
+
+.dashboard-card span {
+  color: #777770;
+
+  font-size: 10px;
+
+  font-weight: 750;
+
+  letter-spacing: 0.11em;
+}
+
+
+.dashboard-card strong {
+  margin-top: 24px;
+
+  font-size:
+    clamp(
+      32px,
+      4vw,
+      48px
+    );
+
+  line-height: 1;
+
+  letter-spacing: -0.05em;
+}
+
+
+.dashboard-card small {
+  margin-top: 18px;
+
+  color: #85857f;
+
+  font-size: 12px;
+
+  line-height: 1.45;
+}
+
+
+/* =========================================================
+   DASHBOARD SECTION
+========================================================= */
+
+.dashboard-section {
+  margin-top: 16px;
+
+  padding: 32px;
+
+  border:
+    1px solid
+    #e7e7e2;
+
+  background: white;
+}
+
+
+.dashboard-section-header {
+  margin-bottom: 28px;
+}
+
+
+.dashboard-section-header h3 {
+  margin:
+    9px
+    0
+    0;
+
+  font-size:
+    clamp(
+      27px,
+      4vw,
+      38px
+    );
+
+  line-height: 1;
+
+  letter-spacing: -0.04em;
+}
+
+
+.dashboard-section-header p {
+  max-width: 720px;
+
+  margin:
+    14px
+    0
+    0;
+
+  color: #6c6c66;
+
+  font-size: 14px;
+
+  line-height: 1.6;
+}
+
+
+/* =========================================================
+   TWO COLUMN
+========================================================= */
+
+.dashboard-two-column {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(0, 1fr)
+    );
+
+  gap: 16px;
+}
+
+
+.dashboard-two-column
+.dashboard-section {
+  min-width: 0;
+}
+
+
+/* =========================================================
+   READINESS
+========================================================= */
+
+.readiness-card {
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 1fr)
+    auto;
+
+  gap: 32px;
+
+  padding: 24px;
+
+  border:
+    1px solid
+    #e7e7e2;
+
+  background: #fafaf8;
+}
+
+
+.readiness-status {
+  display: flex;
+
+  gap: 14px;
+
+  align-items: flex-start;
+}
+
+
+.readiness-dot {
+  width: 10px;
+
+  height: 10px;
+
+  margin-top: 6px;
+
+  flex: 0 0 auto;
+
+  border-radius: 50%;
+
+  background: #b42318;
+}
+
+
+.readiness-dot.ready {
+  background: #2d7d46;
+}
+
+
+.readiness-status strong {
+  font-size: 15px;
+}
+
+
+.readiness-status p {
+  max-width: 620px;
+
+  margin:
+    8px
+    0
+    0;
+
+  color: #6c6c66;
+
+  font-size: 13px;
+
+  line-height: 1.6;
+}
+
+
+.readiness-metrics {
+  display: flex;
+
+  gap: 1px;
+
+  background: #e7e7e2;
+
+  border:
+    1px solid
+    #e7e7e2;
+}
+
+
+.readiness-metrics div {
+  min-width: 90px;
+
+  padding: 14px;
+
+  background: white;
+}
+
+
+.readiness-metrics span {
+  display: block;
+
+  color: #777770;
+
+  font-size: 10px;
+
+  font-weight: 750;
+
+  letter-spacing: 0.08em;
+}
+
+
+.readiness-metrics strong {
+  display: block;
+
+  margin-top: 9px;
+
+  font-size: 24px;
+}
+
+
+/* =========================================================
+   ANALYTICS BARS
+========================================================= */
+
+.analytics-bars {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 17px;
+}
+
+
+.analytics-bar-row {
+  width: 100%;
+}
+
+
+.analytics-bar-label {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  gap: 20px;
+
+  margin-bottom: 7px;
+
+  font-size: 12px;
+}
+
+
+.analytics-bar-label span {
+  min-width: 0;
+
+  color: #555550;
+
+  overflow-wrap: anywhere;
+}
+
+
+.analytics-bar-label strong {
+  flex: 0 0 auto;
+
+  font-size: 12px;
+}
+
+
+.analytics-bar-track {
+  height: 7px;
+
+  width: 100%;
+
+  overflow: hidden;
+
+  background: #ededE8;
+}
+
+
+.analytics-bar-fill {
+  height: 100%;
+
+  min-width: 3px;
+
+  background: #171717;
+
+  transition:
+    width 0.3s ease;
+}
+
+
+/* =========================================================
+   EMPTY
+========================================================= */
+
+.analytics-empty {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 7px;
+
+  padding: 25px;
+
+  border:
+    1px dashed
+    #d8d8d2;
+
+  background: #fafaf8;
+
+  color: #777770;
+
+  font-size: 13px;
+
+  line-height: 1.55;
+}
+
+
+/* =========================================================
+   FEATURE NOTE
+========================================================= */
+
+.feature-note {
+  margin-top: 28px;
+
+  padding: 18px;
+
+  border-left:
+    3px solid
+    #d8d8d2;
+
+  background: #fafaf8;
+}
+
+
+.feature-note strong {
+  font-size: 12px;
+}
+
+
+.feature-note p {
+  max-width: 760px;
+
+  margin:
+    8px
+    0
+    0;
+
+  color: #6c6c66;
+
+  font-size: 13px;
+
+  line-height: 1.6;
+}
+
+
+/* =========================================================
+   PCA
+========================================================= */
+
+.pca-container {
+  position: relative;
+
+  max-width: 760px;
+
+  margin: 0 auto;
+
+  padding: 20px;
+
+  border:
+    1px solid
+    #e7e7e2;
+
+  background: #fafaf8;
+}
+
+
+.pca-chart {
+  display: block;
+
+  width: 100%;
+
+  height: auto;
+}
+
+
+.pca-axis {
+  stroke: #d6d6d0;
+
+  stroke-width: 1;
+}
+
+
+.pca-point {
+  fill: #171717;
+
+  opacity: 0.7;
+}
+
+
+.pca-labels {
+  display: flex;
+
+  justify-content: space-between;
+
+  color: #85857f;
+
+  font-size: 11px;
+}
+
+
+/* =========================================================
+   RESEARCH GRID
+========================================================= */
+
+.research-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(0, 1fr)
+    );
+
+  gap: 1px;
+
+  border:
+    1px solid
+    #e7e7e2;
+
+  background: #e7e7e2;
+}
+
+
+.research-grid article {
+  min-height: 220px;
+
+  padding: 24px;
+
+  background: #fafaf8;
+}
+
+
+.research-grid article > span {
+  color: #a0a09a;
+
+  font-size: 12px;
+
+  font-weight: 750;
+
+  letter-spacing: 0.08em;
+}
+
+
+.research-grid h4 {
+  margin:
+    30px
+    0
+    0;
+
+  font-size: 20px;
+
+  letter-spacing: -0.025em;
+}
+
+
+.research-grid p {
+  margin:
+    12px
+    0
+    0;
+
+  color: #6c6c66;
+
+  font-size: 13px;
+
+  line-height: 1.65;
+}
+
+
+/* =========================================================
    MEASUREMENT HISTORY
-   ========================================= */
+========================================================= */
 
 .measurement-history {
-  margin-top: 64px;
+  margin-top: 100px;
+
+  padding-top: 70px;
+
+  border-top:
+    1px solid
+    #dcdcd6;
 }
 
 
@@ -516,9 +1254,9 @@ a {
 }
 
 
-/* =========================================
+/* =========================================================
    SUMMARY
-   ========================================= */
+========================================================= */
 
 .measurement-summary {
   display: grid;
@@ -580,12 +1318,14 @@ a {
 }
 
 
-/* =========================================
-   EMPTY HISTORY
-   ========================================= */
+/* =========================================================
+   HISTORY EMPTY
+========================================================= */
 
 .history-empty {
-  padding: 40px 32px;
+  padding:
+    40px
+    32px;
 
   border:
     1px solid
@@ -616,9 +1356,9 @@ a {
 }
 
 
-/* =========================================
+/* =========================================================
    HISTORY LIST
-   ========================================= */
+========================================================= */
 
 .history-list {
   display: flex;
@@ -628,10 +1368,6 @@ a {
   gap: 16px;
 }
 
-
-/* =========================================
-   HISTORY CARD
-   ========================================= */
 
 .measurement-history-card {
   padding: 32px;
@@ -644,9 +1380,9 @@ a {
 }
 
 
-/* =========================================
-   HISTORY CARD HEADER
-   ========================================= */
+/* =========================================================
+   HISTORY HEADER
+========================================================= */
 
 .history-card-header {
   display: flex;
@@ -706,15 +1442,18 @@ a {
 }
 
 
-/* =========================================
-   RECORDING SECTION
-   ========================================= */
+/* =========================================================
+   RECORDING
+========================================================= */
 
 .recording-section {
-  padding:
-    24px
-    0
-    0;
+  padding-top: 28px;
+
+  margin-top: 28px;
+
+  border-top:
+    1px solid
+    #e7e7e2;
 }
 
 
@@ -783,10 +1522,6 @@ a {
   font-size: 13px;
 
   font-weight: 650;
-
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease;
 }
 
 
@@ -797,456 +1532,18 @@ a {
 }
 
 
-/* =========================================
-   HISTORY CARD META
-   ========================================= */
-
-.measurement-history-card
-.result-meta {
-  margin-top: 24px;
-}
-
-
-/* =========================================
-   HISTORY CARD FEATURES
-   ========================================= */
-
-.measurement-history-card
-.feature-section {
-  margin-top: 28px;
-}
-
-
-/* =========================================
-   FOOTER
-   ========================================= */
-
-footer {
-  margin-top: auto;
-
-  padding:
-    40px
-    0
-    30px;
-
-  display: flex;
-
-  justify-content: space-between;
-
-  gap: 20px;
-
-  color: #85857f;
-
-  font-size: 12px;
-}
-
-
-/* =========================================
-   TABLET
-   ========================================= */
-
-@media (max-width: 760px) {
-
-  .measurement-summary {
-    grid-template-columns:
-      repeat(
-        2,
-        minmax(0, 1fr)
-      );
-  }
-
-
-  .result-meta {
-    grid-template-columns:
-      repeat(
-        2,
-        minmax(0, 1fr)
-      );
-  }
-
-}
-
-
-/* =========================================
-   MOBILE
-   ========================================= */
-
-@media (max-width: 600px) {
-
-  .app {
-    width:
-      min(
-        calc(100% - 24px),
-        900px
-      );
-  }
-
-
-  .hero {
-    padding-top: 55px;
-
-    padding-bottom: 40px;
-  }
-
-
-  .intro {
-    font-size: 16px;
-  }
-
-
-  .measurement-panel,
-  .result-card,
-  .measurement-history-card {
-    padding: 22px;
-  }
-
-
-  .measurement-history {
-    margin-top: 48px;
-  }
-
-
-  .measurement-summary {
-    grid-template-columns: 1fr 1fr;
-  }
-
-
-  .summary-card {
-    min-height: 110px;
-
-    padding: 18px;
-  }
-
-
-  .summary-card strong {
-    font-size: 32px;
-  }
-
-
-  .result-meta {
-    grid-template-columns: 1fr;
-  }
-
-
-  .feature-grid {
-    grid-template-columns: 1fr;
-  }
-
-
-  .history-card-header {
-    flex-direction: column;
-
-    gap: 12px;
-  }
-
-
-  .measurement-number {
-    order: -1;
-  }
-
-
-  .recording-controls {
-    flex-direction: column;
-
-    align-items: stretch;
-  }
-
-
-  .recording-controls audio {
-    width: 100%;
-
-    min-width: 0;
-  }
-
-
-  .download-button {
-    width: 100%;
-  }
-
-
-  footer {
-    flex-direction: column;
-
-    padding-top: 32px;
-  }
-
-}
-
-/* =========================================================
-   MEASUREMENT HISTORY
-========================================================= */
-
-.measurement-history {
-  margin-top: 40px;
-}
-
-.history-header {
-  padding: 32px 0;
-}
-
-.history-header h2 {
-  margin: 0;
-
-  font-size: 36px;
-
-  letter-spacing: -0.035em;
-}
-
-.history-header p {
-  color: #6c6c66;
-
-  line-height: 1.6;
-}
-
-
-.history-list {
-  display: flex;
-
-  flex-direction: column;
-
-  gap: 16px;
-}
-
-
-.measurement-history-card {
-  padding: 32px;
-
-  border: 1px solid #e7e7e2;
-
-  background: white;
-}
-
-
-.history-card-header {
-  display: flex;
-
-  justify-content: space-between;
-
-  align-items: flex-start;
-
-  gap: 20px;
-}
-
-
-.history-card-header h3 {
-  margin: 0;
-
-  font-size: 30px;
-
-  letter-spacing: -0.035em;
-}
-
-
-.history-card-header p {
-  margin-top: 8px;
-
-  color: #777770;
-
-  font-size: 13px;
-}
-
-
-.recording-section {
-  margin-top: 28px;
-
-  padding-top: 28px;
-
-  border-top: 1px solid #e7e7e2;
-}
-
-
-.recording-name {
-  margin-top: -2px;
-
-  font-family:
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace;
-
-  font-size: 13px;
-}
-
-
-.recording-controls {
-  display: flex;
-
-  align-items: center;
-
-  gap: 12px;
-
-  margin-top: 16px;
-}
-
-
-.recording-controls audio {
-  width: 100%;
-
-  min-width: 0;
-}
-
-
-.download-button {
-  flex-shrink: 0;
-
-  padding: 10px 14px;
-
-  border: 1px solid #dcdcd6;
-
-  color: #171717;
-
-  text-decoration: none;
-
-  font-size: 13px;
-
-  font-weight: 650;
-}
-
-
-.download-button:hover {
-  background: #f7f7f4;
-}
-
-
-/* =========================================================
-   FEEDBACK
-========================================================= */
-
-
-.feedback-editor {
-  margin-top: 28px;
-
-  padding: 24px;
-
-  border: 1px solid #e7e7e2;
-
-  background: #fafaf8;
-
-  display: flex;
-
-  flex-direction: column;
-
-  gap: 10px;
-}
-
-
-.feedback-editor label {
-  margin-top: 10px;
-
-  font-size: 12px;
-
-  font-weight: 700;
-
-  color: #555550;
-}
-
-
-.feedback-editor select,
-.feedback-editor input,
-.feedback-editor textarea {
-  width: 100%;
-
-  padding: 12px 13px;
-
-  border: 1px solid #dcdcd6;
-
-  background: white;
-
-  color: #171717;
-
-  font: inherit;
-
-  outline: none;
-}
-
-
-.feedback-editor textarea {
-  min-height: 100px;
-
-  resize: vertical;
-}
-
-
-.feedback-editor select:focus,
-.feedback-editor input:focus,
-.feedback-editor textarea:focus {
-  border-color: #999992;
-}
-
-
-.feedback-buttons {
-  display: flex;
-
-  gap: 8px;
-}
-
-
-.feedback-choice {
-  padding: 10px 22px;
-
-  border: 1px solid #dcdcd6;
-
-  background: white;
-
-  cursor: pointer;
-
-  font-weight: 650;
-}
-
-
-.feedback-choice.active {
-  background: #171717;
-
-  color: white;
-
-  border-color: #171717;
-}
-
-
-.feedback-badge {
-  padding: 7px 10px;
-
-  font-size: 11px;
-
-  font-weight: 750;
-
-  text-transform: uppercase;
-
-  letter-spacing: 0.08em;
-
-  border: 1px solid #dcdcd6;
-}
-
-
-.feedback-badge.correct {
-  color: #216e39;
-
-  border-color: #b8d9c1;
-
-  background: #f3faf5;
-}
-
-
-.feedback-badge.incorrect {
-  color: #a02b20;
-
-  border-color: #e3c3bf;
-
-  background: #fff7f5;
-}
-
-
 /* =========================================================
    DETAILS
 ========================================================= */
-
 
 .measurement-details {
   margin-top: 28px;
 
   padding-top: 28px;
 
-  border-top: 1px solid #e7e7e2;
+  border-top:
+    1px solid
+    #e7e7e2;
 }
 
 
@@ -1254,13 +1551,18 @@ footer {
   display: grid;
 
   grid-template-columns:
-    repeat(3, 1fr);
+    repeat(
+      3,
+      1fr
+    );
 
   gap: 1px;
 
   background: #e7e7e2;
 
-  border: 1px solid #e7e7e2;
+  border:
+    1px solid
+    #e7e7e2;
 }
 
 
@@ -1298,7 +1600,9 @@ footer {
 
   background: #fafaf8;
 
-  border-left: 3px solid #d8d8d2;
+  border-left:
+    3px solid
+    #d8d8d2;
 
   color: #5f5f5a;
 
@@ -1307,9 +1611,149 @@ footer {
 
 
 /* =========================================================
-   ACTIONS
+   FEEDBACK
 ========================================================= */
 
+.feedback-editor {
+  margin-top: 28px;
+
+  padding: 24px;
+
+  border:
+    1px solid
+    #e7e7e2;
+
+  background: #fafaf8;
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 10px;
+}
+
+
+.feedback-editor label {
+  margin-top: 10px;
+
+  font-size: 12px;
+
+  font-weight: 700;
+
+  color: #555550;
+}
+
+
+.feedback-editor select,
+.feedback-editor input,
+.feedback-editor textarea {
+  width: 100%;
+
+  padding:
+    12px
+    13px;
+
+  border:
+    1px solid
+    #dcdcd6;
+
+  background: white;
+
+  color: #171717;
+
+  font: inherit;
+
+  outline: none;
+}
+
+
+.feedback-editor textarea {
+  min-height: 100px;
+
+  resize: vertical;
+}
+
+
+.feedback-editor select:focus,
+.feedback-editor input:focus,
+.feedback-editor textarea:focus {
+  border-color: #999992;
+}
+
+
+.feedback-buttons {
+  display: flex;
+
+  gap: 8px;
+}
+
+
+.feedback-choice {
+  padding:
+    10px
+    22px;
+
+  border:
+    1px solid
+    #dcdcd6;
+
+  background: white;
+
+  cursor: pointer;
+
+  font-weight: 650;
+}
+
+
+.feedback-choice.active {
+  background: #171717;
+
+  color: white;
+
+  border-color: #171717;
+}
+
+
+.feedback-badge {
+  padding:
+    7px
+    10px;
+
+  font-size: 11px;
+
+  font-weight: 750;
+
+  text-transform: uppercase;
+
+  letter-spacing: 0.08em;
+
+  border:
+    1px solid
+    #dcdcd6;
+}
+
+
+.feedback-badge.correct {
+  color: #216e39;
+
+  border-color: #b8d9c1;
+
+  background: #f3faf5;
+}
+
+
+.feedback-badge.incorrect {
+  color: #a02b20;
+
+  border-color: #e3c3bf;
+
+  background: #fff7f5;
+}
+
+
+/* =========================================================
+   ACTIONS
+========================================================= */
 
 .history-actions,
 .edit-actions {
@@ -1325,7 +1769,9 @@ footer {
 .save-button,
 .cancel-button,
 .discard-button {
-  padding: 11px 15px;
+  padding:
+    11px
+    15px;
 
   font: inherit;
 
@@ -1338,7 +1784,9 @@ footer {
 
 
 .secondary-button {
-  border: 1px solid #d7d7d1;
+  border:
+    1px solid
+    #d7d7d1;
 
   background: white;
 
@@ -1368,14 +1816,18 @@ footer {
 
 
 .cancel-button {
-  border: 1px solid #d7d7d1;
+  border:
+    1px solid
+    #d7d7d1;
 
   background: white;
 }
 
 
 .discard-button {
-  border: 1px solid #ead2cf;
+  border:
+    1px solid
+    #ead2cf;
 
   background: #fff8f7;
 
@@ -1393,7 +1845,9 @@ footer {
 
   padding: 14px;
 
-  border: 1px solid #b8d9c1;
+  border:
+    1px solid
+    #b8d9c1;
 
   background: #f3faf5;
 
@@ -1406,14 +1860,193 @@ footer {
 
 
 /* =========================================================
+   FOOTER
+========================================================= */
+
+footer {
+  margin-top: auto;
+
+  padding:
+    60px
+    0
+    30px;
+
+  display: flex;
+
+  justify-content: space-between;
+
+  gap: 20px;
+
+  color: #85857f;
+
+  font-size: 12px;
+}
+
+
+/* =========================================================
+   TABLET
+========================================================= */
+
+@media (max-width: 850px) {
+
+  .dashboard-cards {
+    grid-template-columns:
+      repeat(
+        2,
+        minmax(0, 1fr)
+      );
+  }
+
+
+  .dashboard-two-column {
+    grid-template-columns: 1fr;
+  }
+
+
+  .readiness-card {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+
+/* =========================================================
    MOBILE
 ========================================================= */
 
-
 @media (max-width: 600px) {
 
-  .measurement-history-card {
+  .app {
+    width:
+      calc(
+        100% - 24px
+      );
+  }
+
+
+  .hero {
+    padding-top: 55px;
+
+    padding-bottom: 45px;
+  }
+
+
+  .intro {
+    font-size: 16px;
+  }
+
+
+  .measurement-panel,
+  .result-card,
+  .measurement-history-card,
+  .dashboard-section {
     padding: 22px;
+  }
+
+
+  .dashboard-title-row {
+    flex-direction: column;
+
+    align-items: flex-start;
+  }
+
+
+  .dashboard-title-row h2 {
+    font-size: 42px;
+  }
+
+
+  .dashboard-cards {
+    grid-template-columns:
+      1fr 1fr;
+  }
+
+
+  .dashboard-card {
+    min-height: 120px;
+
+    padding: 18px;
+  }
+
+
+  .dashboard-card strong {
+    font-size: 32px;
+  }
+
+
+  .dashboard-section {
+    margin-top: 12px;
+  }
+
+
+  .readiness-card {
+    padding: 18px;
+  }
+
+
+  .readiness-metrics {
+    width: 100%;
+  }
+
+
+  .readiness-metrics div {
+    min-width: 0;
+
+    flex: 1;
+  }
+
+
+  .research-grid {
+    grid-template-columns: 1fr;
+  }
+
+
+  .measurement-history {
+    margin-top: 70px;
+
+    padding-top: 55px;
+  }
+
+
+  .measurement-summary {
+    grid-template-columns:
+      1fr 1fr;
+  }
+
+
+  .summary-card {
+    min-height: 110px;
+
+    padding: 18px;
+  }
+
+
+  .summary-card strong {
+    font-size: 32px;
+  }
+
+
+  .result-meta {
+    grid-template-columns:
+      1fr;
+  }
+
+
+  .feature-grid {
+    grid-template-columns:
+      1fr;
+  }
+
+
+  .history-card-header {
+    flex-direction: column;
+
+    gap: 12px;
+  }
+
+
+  .measurement-number {
+    order: -1;
   }
 
 
@@ -1424,24 +2057,36 @@ footer {
   }
 
 
+  .recording-controls audio {
+    width: 100%;
+
+    min-width: 0;
+  }
+
+
   .download-button {
+    width: 100%;
+
     text-align: center;
   }
 
 
   .detail-grid {
-    grid-template-columns: 1fr;
-  }
-
-
-  .history-card-header {
-    flex-direction: column;
+    grid-template-columns:
+      1fr;
   }
 
 
   .history-actions,
   .edit-actions {
     flex-direction: column;
+  }
+
+
+  footer {
+    flex-direction: column;
+
+    padding-top: 45px;
   }
 
 }

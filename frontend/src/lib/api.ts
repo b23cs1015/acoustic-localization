@@ -7,13 +7,13 @@ import type {
 } from "../types";
 
 
-const API_BASE = "";
+const API_BASE =
+  "https://north-wheels-michelle-not.trycloudflare.com";
 
 
 /* =======================================================
    ANALYZE
 ======================================================= */
-
 
 export async function analyzeAudio(
   audio: Blob
@@ -44,7 +44,7 @@ export async function analyzeAudio(
 
     throw new Error(
       errorText ||
-        `Server returned ${response.status}`
+      `Server returned ${response.status}`
     );
   }
 
@@ -55,7 +55,6 @@ export async function analyzeAudio(
 /* =======================================================
    MEASUREMENTS
 ======================================================= */
-
 
 export async function getMeasurements():
   Promise<MeasurementsResponse> {
@@ -72,7 +71,7 @@ export async function getMeasurements():
 
     throw new Error(
       errorText ||
-        `Server returned ${response.status}`
+      `Server returned ${response.status}`
     );
   }
 
@@ -81,9 +80,34 @@ export async function getMeasurements():
 
 
 /* =======================================================
-   AUDIO
+   RESEARCH ANALYTICS
 ======================================================= */
 
+export async function getAllAnalytics():
+  Promise<Record<string, unknown>> {
+
+  const response =
+    await fetch(
+      `${API_BASE}/api/analytics`
+    );
+
+  if (!response.ok) {
+
+    const errorText =
+      await response.text();
+
+    throw new Error(
+      errorText ||
+        `Server returned ${response.status}`
+    );
+  }
+
+  return response.json();
+}
+
+/* =======================================================
+   AUDIO
+======================================================= */
 
 export function getMeasurementAudioUrl(
   measurementId: number
@@ -100,7 +124,6 @@ export function getMeasurementAudioUrl(
    POSITIONS
 ======================================================= */
 
-
 export async function getPositions():
   Promise<PositionsResponse> {
 
@@ -116,7 +139,7 @@ export async function getPositions():
 
     throw new Error(
       errorText ||
-        `Server returned ${response.status}`
+      `Server returned ${response.status}`
     );
   }
 
@@ -153,7 +176,7 @@ export async function createPosition(
 
     throw new Error(
       errorText ||
-        `Server returned ${response.status}`
+      `Server returned ${response.status}`
     );
   }
 
@@ -168,21 +191,13 @@ export async function createPosition(
    UPDATE MEASUREMENT
 ======================================================= */
 
-
 export async function updateMeasurement(
   measurementId: number,
   data: {
-    position_id:
-      number | null;
-
-    object_between:
-      string | null;
-
-    distance_cm:
-      number | null;
-
-    notes:
-      string | null;
+    position_id: number | null;
+    object_between: string | null;
+    distance_cm: number | null;
+    notes: string | null;
   }
 ): Promise<Measurement> {
 
@@ -209,7 +224,7 @@ export async function updateMeasurement(
 
     throw new Error(
       errorText ||
-        `Server returned ${response.status}`
+      `Server returned ${response.status}`
     );
   }
 
@@ -223,7 +238,6 @@ export async function updateMeasurement(
 /* =======================================================
    FEEDBACK
 ======================================================= */
-
 
 export async function saveFeedback(
   measurementId: number,
@@ -259,7 +273,7 @@ export async function saveFeedback(
 
     throw new Error(
       errorText ||
-        `Server returned ${response.status}`
+      `Server returned ${response.status}`
     );
   }
 
@@ -273,7 +287,6 @@ export async function saveFeedback(
 /* =======================================================
    DISCARD
 ======================================================= */
-
 
 export async function discardMeasurement(
   measurementId: number
@@ -295,7 +308,7 @@ export async function discardMeasurement(
 
     throw new Error(
       errorText ||
-        `Server returned ${response.status}`
+      `Server returned ${response.status}`
     );
   }
 
@@ -309,7 +322,6 @@ export async function discardMeasurement(
 /* =======================================================
    RESTORE
 ======================================================= */
-
 
 export async function restoreMeasurement(
   measurementId: number
@@ -331,7 +343,7 @@ export async function restoreMeasurement(
 
     throw new Error(
       errorText ||
-        `Server returned ${response.status}`
+      `Server returned ${response.status}`
     );
   }
 
@@ -339,4 +351,44 @@ export async function restoreMeasurement(
     await response.json();
 
   return result.measurement;
+}
+
+
+/* =======================================================
+   RESEARCH ANALYTICS
+======================================================= */
+
+/*
+ * The backend analytics endpoint returns a collection
+ * of research-oriented datasets.
+ *
+ * The dashboard intentionally keeps these fields flexible
+ * because different analytics sections may be unavailable
+ * until enough labeled training data exists.
+ */
+
+export interface AnalyticsResponse {
+
+  success?: boolean;
+
+  summary?:
+    Record<string, unknown>;
+
+  features?:
+    Record<string, unknown>;
+
+  position?:
+    Record<string, unknown>;
+
+  distance?:
+    Record<string, unknown>;
+
+  object?:
+    Record<string, unknown>;
+
+  pca?:
+    Record<string, unknown>;
+
+  [key: string]:
+    unknown;
 }
