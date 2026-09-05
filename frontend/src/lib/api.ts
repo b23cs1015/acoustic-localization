@@ -8,7 +8,7 @@ import type {
 
 
 const API_BASE =
-  "https://north-wheels-michelle-not.trycloudflare.com";
+  "https://appointments-operations-wait-compact.trycloudflare.com";
 
 
 /* =======================================================
