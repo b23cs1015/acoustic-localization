@@ -39,3 +39,6 @@ Thumbs.db
 *.db
 *.sqlite
 *.sqlite3
+
+# Experimental acoustic dataset
+backend/data/dataset/

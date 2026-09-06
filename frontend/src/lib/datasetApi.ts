@@ -1,5 +1,5 @@
 const API_BASE_URL =
-  " https://stopping-purple-hop-constructed.trycloudflare.com";
+  "https://life-leonard-greensboro-rabbit.trycloudflare.com";
 
 
 export type TargetPresence =
@@ -120,6 +120,53 @@ export interface PredictionResult {
 
   nearest_samples:
     NearestSample[];
+
+}
+
+
+/* =======================================================
+   BULK PREDICTION
+   ======================================================= */
+
+export interface PredictAllResult {
+
+  total_samples: number;
+
+  evaluated_samples: number;
+
+  skipped_samples: number;
+
+  correct_predictions: number;
+
+  incorrect_predictions: number;
+
+  accuracy: number | null;
+
+  results: Array<{
+
+    sample_id: number;
+
+    sample_code: string;
+
+    ground_truth_position_id:
+      number | null;
+
+    ground_truth_position_name:
+      string | null;
+
+    predicted_position_id:
+      number | null;
+
+    predicted_position_name:
+      string | null;
+
+    confidence:
+      number | null;
+
+    evaluation:
+      PredictionEvaluation;
+
+  }>;
 
 }
 
@@ -520,21 +567,6 @@ export async function predictDatasetSample(
   id: number
 ): Promise<PredictionResult> {
 
-  /*
-   * IMPORTANT:
-   *
-   * The backend route returns the prediction
-   * fields directly at the top level.
-   *
-   * It does NOT return:
-   *
-   * {
-   *   prediction: {...}
-   * }
-   *
-   * Therefore we must read the response directly.
-   */
-
   const response =
     await request<
       PredictionResult
@@ -611,6 +643,72 @@ export async function predictDatasetSample(
 
 
 /* =======================================================
+   PREDICT ALL
+   ======================================================= */
+
+export async function predictAllDatasetSamples():
+  Promise<PredictAllResult> {
+
+  const response =
+    await request<
+      PredictAllResult
+    >(
+      "/api/dataset/samples/predict-all",
+      {
+        method: "POST"
+      }
+    );
+
+
+  return {
+
+    total_samples:
+      typeof response.total_samples ===
+      "number"
+        ? response.total_samples
+        : 0,
+
+    evaluated_samples:
+      typeof response.evaluated_samples ===
+      "number"
+        ? response.evaluated_samples
+        : 0,
+
+    skipped_samples:
+      typeof response.skipped_samples ===
+      "number"
+        ? response.skipped_samples
+        : 0,
+
+    correct_predictions:
+      typeof response.correct_predictions ===
+      "number"
+        ? response.correct_predictions
+        : 0,
+
+    incorrect_predictions:
+      typeof response.incorrect_predictions ===
+      "number"
+        ? response.incorrect_predictions
+        : 0,
+
+    accuracy:
+      typeof response.accuracy ===
+      "number"
+        ? response.accuracy
+        : null,
+
+    results:
+      Array.isArray(response.results)
+        ? response.results
+        : []
+
+  };
+
+}
+
+
+/* =======================================================
    SUMMARY
    ======================================================= */
 
@@ -638,6 +736,30 @@ export async function getDatasetSummary():
 
 
   return response.summary;
+
+}
+
+
+/* =======================================================
+   CSV DOWNLOADS
+   ======================================================= */
+
+export function getDatasetFeaturesCsvUrl():
+  string {
+
+  return (
+    `${API_BASE_URL}/api/dataset/export/features`
+  );
+
+}
+
+
+export function getDatasetPredictionsCsvUrl():
+  string {
+
+  return (
+    `${API_BASE_URL}/api/dataset/export/predictions`
+  );
 
 }
 

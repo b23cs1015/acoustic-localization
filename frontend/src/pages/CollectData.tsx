@@ -15,6 +15,9 @@ import {
   getDatasetSamples,
   getDatasetSummary,
   predictDatasetSample,
+  predictAllDatasetSamples,
+  getDatasetFeaturesCsvUrl,
+  getDatasetPredictionsCsvUrl,
   updateDatasetSample,
   type DatasetPosition,
   type DatasetSample,
@@ -195,6 +198,39 @@ function formatDate(
 }
 
 
+/*
+ * Confidence and accuracy are stored as
+ * values between 0 and 1.
+ *
+ * Example:
+ * 0.7164 -> 71.6%
+ * 0.825  -> 82.5%
+ */
+function formatConfidence(
+  confidence:
+    | number
+    | null
+    | undefined
+): string {
+
+  if (
+    typeof confidence !== "number" ||
+    !Number.isFinite(confidence)
+  ) {
+
+    return "—";
+
+  }
+
+
+  return (
+    `${(
+      confidence * 100
+    ).toFixed(1)}%`
+  );
+}
+
+
 function formatEvaluation(
   evaluation:
     | string
@@ -221,29 +257,6 @@ function formatEvaluation(
 
 
   return "Not evaluable";
-}
-
-
-function formatConfidence(
-  confidence:
-    | number
-    | null
-    | undefined
-): string {
-
-  if (
-    typeof confidence !== "number" ||
-    !Number.isFinite(confidence)
-  ) {
-
-    return "—";
-
-  }
-
-
-  return (
-    `${confidence.toFixed(1)}%`
-  );
 }
 
 
@@ -502,6 +515,17 @@ export default function CollectData() {
   >(null);
 
 
+  /*
+   * Tracks the bulk prediction operation.
+   * While this is true, another prediction
+   * operation cannot be started.
+   */
+  const [
+    predictingAll,
+    setPredictingAll
+  ] = useState(false);
+
+
   const [
     featureSampleId,
     setFeatureSampleId
@@ -720,6 +744,19 @@ export default function CollectData() {
     }
 
 
+    /*
+     * Do not start a recording while bulk
+     * prediction is modifying the dataset.
+     */
+    if (
+      predictingAll
+    ) {
+
+      return;
+
+    }
+
+
     if (
       positions.length === 0
     ) {
@@ -901,15 +938,16 @@ export default function CollectData() {
 
 
   /*
-   * Predict a sample and immediately update
-   * both the prediction panel and the table.
+   * Predict a single sample and immediately
+   * update both the prediction panel and table.
    */
   async function handlePredict(
     sample: DatasetSample
   ) {
 
     if (
-      predictionSampleId !== null
+      predictionSampleId !== null ||
+      predictingAll
     ) {
 
       return;
@@ -932,7 +970,7 @@ export default function CollectData() {
 
 
       /*
-       * The API now correctly reads the backend's
+       * The API correctly reads the backend's
        * top-level prediction response.
        */
       const result =
@@ -1013,9 +1051,129 @@ export default function CollectData() {
   }
 
 
+  /*
+   * Predict every labeled sample using the
+   * backend's leave-one-out KNN evaluation.
+   *
+   * The backend persists the resulting prediction
+   * for every sample, so after completion we reload
+   * the samples and summary from dataset.db.
+   */
+  async function handlePredictAll() {
+
+    if (
+      predictingAll ||
+      predictionSampleId !== null
+    ) {
+
+      return;
+
+    }
+
+
+    if (
+      samples.length === 0
+    ) {
+
+      setError(
+        "There are no recordings to predict."
+      );
+
+      return;
+
+    }
+
+
+    try {
+
+      setError(null);
+
+      setMessage(null);
+
+      setPrediction(null);
+
+      setPredictingAll(true);
+
+
+      const result =
+        await predictAllDatasetSamples();
+
+
+      /*
+       * Reload the complete dataset so every
+       * prediction/evaluation shown in the UI
+       * comes directly from dataset.db.
+       */
+      const [
+        updatedSamples,
+        updatedSummary
+      ] = await Promise.all([
+
+        getDatasetSamples(),
+
+        getDatasetSummary()
+
+      ]);
+
+
+      setSamples(
+        updatedSamples
+      );
+
+      setSummary(
+        updatedSummary
+      );
+
+
+      const accuracyText =
+        result.accuracy === null
+          ? "—"
+          : `${(
+              result.accuracy * 100
+            ).toFixed(2)}%`;
+
+
+      setMessage(
+        `Prediction complete: ${result.evaluated_samples} evaluated · ${result.correct_predictions} correct · ${result.incorrect_predictions} incorrect · ${accuracyText} accuracy.`
+      );
+
+    } catch (err) {
+
+      console.error(
+        "Bulk dataset prediction failed:",
+        err
+      );
+
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to predict all recordings."
+      );
+
+    } finally {
+
+      setPredictingAll(
+        false
+      );
+
+    }
+
+  }
+
+
   async function handleDelete(
     sample: DatasetSample
   ) {
+
+    if (
+      predictingAll
+    ) {
+
+      return;
+
+    }
+
 
     const confirmed =
       window.confirm(
@@ -1100,6 +1258,15 @@ export default function CollectData() {
     sample: DatasetSample
   ) {
 
+    if (
+      predictingAll
+    ) {
+
+      return;
+
+    }
+
+
     setEditing({
 
       sample,
@@ -1132,6 +1299,15 @@ export default function CollectData() {
   async function handleSaveEdit() {
 
     if (!editing) {
+
+      return;
+
+    }
+
+
+    if (
+      predictingAll
+    ) {
 
       return;
 
@@ -1559,7 +1735,8 @@ export default function CollectData() {
                 }
                 disabled={
                   isRecording ||
-                  isSaving
+                  isSaving ||
+                  predictingAll
                 }
               >
 
@@ -1604,7 +1781,8 @@ export default function CollectData() {
                 placeholder="New position"
                 disabled={
                   isRecording ||
-                  isSaving
+                  isSaving ||
+                  predictingAll
                 }
                 onKeyDown={
                   event => {
@@ -1634,6 +1812,7 @@ export default function CollectData() {
                 disabled={
                   isRecording ||
                   isSaving ||
+                  predictingAll ||
                   !newPositionName.trim()
                 }
               >
@@ -1692,7 +1871,8 @@ export default function CollectData() {
                     }
                     disabled={
                       isRecording ||
-                      isSaving
+                      isSaving ||
+                      predictingAll
                     }
                   >
                     {
@@ -1744,7 +1924,8 @@ export default function CollectData() {
                       }
                       disabled={
                         isRecording ||
-                        isSaving
+                        isSaving ||
+                        predictingAll
                       }
                     >
                       {
@@ -1788,7 +1969,8 @@ export default function CollectData() {
               rows={3}
               disabled={
                 isRecording ||
-                isSaving
+                isSaving ||
+                predictingAll
               }
             />
 
@@ -1806,6 +1988,7 @@ export default function CollectData() {
               disabled={
                 isRecording ||
                 isSaving ||
+                predictingAll ||
                 positions.length === 0
               }
             >
@@ -2084,6 +2267,119 @@ export default function CollectData() {
               </p>
 
             )}
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      {/* =====================================================
+          DATASET ACTIONS
+          ===================================================== */}
+
+      <section className="dataset-card dataset-actions-card">
+
+        <div className="dataset-card-header">
+
+          <div>
+
+            <p className="section-kicker">
+              Dataset actions
+            </p>
+
+            <h2>
+              Evaluate & export
+            </h2>
+
+          </div>
+
+        </div>
+
+
+        <div className="dataset-actions-content">
+
+          <div className="dataset-action-primary">
+
+            <div>
+
+              <strong>
+                Run position prediction
+              </strong>
+
+              <p>
+                Evaluate every labeled recording
+                using leave-one-out KNN and save
+                the predictions to the dataset.
+              </p>
+
+            </div>
+
+
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() =>
+                void handlePredictAll()
+              }
+              disabled={
+                predictingAll ||
+                predictionSampleId !== null ||
+                samples.length === 0
+              }
+            >
+
+              {predictingAll
+                ? "Predicting all…"
+                : "Predict All Recordings"}
+
+            </button>
+
+          </div>
+
+
+          <div className="dataset-export-actions">
+
+            <div>
+
+              <strong>
+                Export dataset
+              </strong>
+
+              <p>
+                Download the acoustic feature
+                vectors and prediction results
+                as CSV files.
+              </p>
+
+            </div>
+
+
+            <div className="dataset-export-buttons">
+
+              <a
+                className="secondary-button"
+                href={
+                  getDatasetFeaturesCsvUrl()
+                }
+                download="dataset_features.csv"
+              >
+                Download Features CSV
+              </a>
+
+
+              <a
+                className="secondary-button"
+                href={
+                  getDatasetPredictionsCsvUrl()
+                }
+                download="dataset_predictions.csv"
+              >
+                Download Predictions CSV
+              </a>
+
+            </div>
 
           </div>
 
@@ -2643,6 +2939,9 @@ export default function CollectData() {
                                 sample
                               )
                             }
+                            disabled={
+                              predictingAll
+                            }
                           >
 
                             {
@@ -2665,6 +2964,9 @@ export default function CollectData() {
                                 sample.id
                               )
                             }
+                            disabled={
+                              predictingAll
+                            }
                           >
                             Features
                           </button>
@@ -2680,7 +2982,8 @@ export default function CollectData() {
                             }
                             disabled={
                               predictionSampleId !==
-                              null
+                                null ||
+                              predictingAll
                             }
                           >
 
@@ -2704,6 +3007,9 @@ export default function CollectData() {
                                 sample
                               )
                             }
+                            disabled={
+                              predictingAll
+                            }
                           >
                             Edit
                           </button>
@@ -2716,6 +3022,9 @@ export default function CollectData() {
                               void handleDelete(
                                 sample
                               )
+                            }
+                            disabled={
+                              predictingAll
                             }
                           >
                             Delete

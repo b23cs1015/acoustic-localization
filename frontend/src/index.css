@@ -2498,6 +2498,174 @@ a {
 
 
 /* =========================================================
+   DATASET ACTIONS — EVALUATE & EXPORT
+========================================================= */
+
+.dataset-actions-card {
+  margin-top: 16px;
+
+  padding: 28px 32px;
+
+  background: white;
+}
+
+
+.dataset-actions-card .dataset-card-header {
+  margin-bottom: 24px;
+}
+
+
+.dataset-actions-card .dataset-card-header h2 {
+  margin-top: 7px;
+
+  font-size:
+    clamp(
+      25px,
+      4vw,
+      34px
+    );
+}
+
+
+.dataset-actions-content {
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 1fr)
+    minmax(0, 1fr);
+
+  gap: 1px;
+
+  border:
+    1px solid
+    #e7e7e2;
+
+  background: #e7e7e2;
+}
+
+
+.dataset-action-primary,
+.dataset-export-actions {
+  min-width: 0;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  gap: 28px;
+
+  padding: 24px;
+
+  background: #fafaf8;
+}
+
+
+.dataset-action-primary {
+  border-left:
+    3px solid
+    #171717;
+}
+
+
+.dataset-action-primary > div,
+.dataset-export-actions > div:first-child {
+  min-width: 0;
+}
+
+
+.dataset-action-primary strong,
+.dataset-export-actions strong {
+  display: block;
+
+  color: #171717;
+
+  font-size: 13px;
+
+  font-weight: 750;
+
+  letter-spacing: -0.01em;
+}
+
+
+.dataset-action-primary p,
+.dataset-export-actions p {
+  max-width: 520px;
+
+  margin:
+    8px
+    0
+    0;
+
+  color: #73736d;
+
+  font-size: 12px;
+
+  line-height: 1.55;
+}
+
+
+.dataset-action-primary .primary-button {
+  flex: 0 0 auto;
+
+  min-width: 185px;
+
+  padding:
+    12px
+    16px;
+
+  white-space: nowrap;
+}
+
+
+.dataset-export-actions {
+  flex-direction: column;
+
+  align-items: stretch;
+
+  justify-content: center;
+
+  gap: 18px;
+}
+
+
+.dataset-export-buttons {
+  display: flex;
+
+  gap: 8px;
+
+  flex-wrap: wrap;
+}
+
+
+.dataset-export-buttons .secondary-button {
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  min-height: 39px;
+
+  padding:
+    10px
+    13px;
+
+  text-decoration: none;
+
+  font-size: 11px;
+
+  white-space: nowrap;
+}
+
+
+.dataset-export-buttons .secondary-button:hover {
+  background: #f0f0ed;
+}
+
+
+/* =========================================================
    EXTRACTED ACOUSTIC FINGERPRINT
 ========================================================= */
 
@@ -3362,6 +3530,20 @@ a {
   }
 
 
+  .dataset-actions-content {
+    grid-template-columns: 1fr;
+  }
+
+
+  .dataset-action-primary {
+    border-left: 0;
+
+    border-top:
+      3px solid
+      #171717;
+  }
+
+
   .prediction-main {
     grid-template-columns:
       repeat(
@@ -3606,6 +3788,62 @@ a {
 
   .distance-options {
     grid-template-columns: 1fr;
+  }
+
+
+  .dataset-actions-card {
+    padding: 22px;
+  }
+
+
+  .dataset-actions-card .dataset-card-header {
+    margin-bottom: 20px;
+  }
+
+
+  .dataset-actions-content {
+    grid-template-columns: 1fr;
+  }
+
+
+  .dataset-action-primary,
+  .dataset-export-actions {
+    padding: 20px;
+
+    gap: 17px;
+  }
+
+
+  .dataset-action-primary {
+    flex-direction: column;
+
+    align-items: stretch;
+
+    border-top:
+      3px solid
+      #171717;
+  }
+
+
+  .dataset-action-primary .primary-button {
+    width: 100%;
+
+    min-width: 0;
+  }
+
+
+  .dataset-export-actions {
+    align-items: stretch;
+  }
+
+
+  .dataset-export-buttons {
+    flex-direction: column;
+  }
+
+
+  .dataset-export-buttons .secondary-button {
+    width: 100%;
   }
 
 
