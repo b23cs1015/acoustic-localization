@@ -2,28 +2,35 @@ import {
   useState
 } from "react";
 
-import MeasurementPanel
-  from "./components/MeasurementPanel";
+import MeasurementPanel from "./components/MeasurementPanel";
+import MeasurementHistory from "./components/MeasurementHistory";
+import ResultCard from "./components/ResultCard";
+import StatusCard from "./components/StatusCard";
+import ResearchDashboard from "./components/ResearchDashboard";
 
-import StatusCard
-  from "./components/StatusCard";
-
-import ResultCard
-  from "./components/ResultCard";
-
-import MeasurementHistory
-  from "./components/MeasurementHistory";
-
-import ResearchDashboard
-  from "./components/ResearchDashboard";
+import CollectData from "./pages/CollectData";
 
 import type {
   MeasurementStatus,
   PredictionResult
 } from "./types";
 
+import "./index.css";
 
-function App() {
+
+type AppPage =
+  | "measurement"
+  | "collect";
+
+
+export default function App() {
+
+  const [
+    page,
+    setPage
+  ] = useState<AppPage>(
+    "measurement"
+  );
 
 
   const [
@@ -48,168 +55,221 @@ function App() {
   ] = useState("");
 
 
-  /*
-   * Changing this number causes
-   * MeasurementHistory and
-   * ResearchDashboard to fetch
-   * the latest data.
-   */
-
   const [
-    historyRefreshKey,
-    setHistoryRefreshKey
+    refreshKey,
+    setRefreshKey
   ] = useState(0);
+
+
+  function handleStatusChange(
+    nextStatus: MeasurementStatus
+  ) {
+
+    setStatus(
+      nextStatus
+    );
+  }
+
+
+  function handleResult(
+    nextResult: PredictionResult
+  ) {
+
+    setResult(
+      nextResult
+    );
+  }
+
+
+  function handleError(
+    message: string
+  ) {
+
+    setError(
+      message
+    );
+  }
 
 
   function handleMeasurementComplete() {
 
-    setHistoryRefreshKey(
+    setRefreshKey(
       current =>
         current + 1
     );
-
   }
 
 
   return (
+    <div className="app-shell">
 
-    <main className="app">
+      <header className="site-header">
 
+        <div className="brand-block">
 
-      {/* =================================================
-          HERO
-      ================================================= */}
+          <span className="brand-mark">
+            AL
+          </span>
 
+          <div>
 
-      <section className="hero">
+            <p className="brand-name">
+              Acoustic Localization
+            </p>
 
-        <div className="eyebrow">
-          BTP RESEARCH PROTOTYPE
-        </div>
-
-
-        <h1>
-          Acoustic
-          <br />
-          Localization
-        </h1>
-
-
-        <p className="intro">
-
-          A browser-based acoustic sensing
-          prototype that emits a controlled
-          chirp, records the response, and
-          sends it to a central machine
-          learning server.
-
-        </p>
-
-      </section>
-
-
-      {/* =================================================
-          MEASUREMENT WORKSPACE
-      ================================================= */}
-
-
-      <section className="workspace">
-
-
-        <StatusCard
-          status={status}
-        />
-
-
-        <MeasurementPanel
-
-          onStatusChange={
-            setStatus
-          }
-
-          onResult={
-            setResult
-          }
-
-          onError={
-            setError
-          }
-
-          onMeasurementComplete={
-            handleMeasurementComplete
-          }
-
-        />
-
-
-        {error && (
-
-          <div className="error-card">
-
-            <strong>
-              Measurement Error
-            </strong>
-
-            <p>
-              {error}
+            <p className="brand-subtitle">
+              BTP Research Prototype
             </p>
 
           </div>
 
-        )}
+        </div>
 
 
-        <ResultCard
-          result={result}
-        />
+        <nav className="main-navigation">
+
+          <button
+            type="button"
+            className={
+              page === "measurement"
+                ? "active"
+                : ""
+            }
+            onClick={() =>
+              setPage("measurement")
+            }
+          >
+            Measurement
+          </button>
 
 
-        <MeasurementHistory
-          refreshKey={
-            historyRefreshKey
-          }
-        />
+          <button
+            type="button"
+            className={
+              page === "collect"
+                ? "active"
+                : ""
+            }
+            onClick={() =>
+              setPage("collect")
+            }
+          >
+            Collect Data
+          </button>
+
+        </nav>
+
+      </header>
 
 
-      </section>
+      {page === "collect" ? (
+
+        <CollectData />
+
+      ) : (
+
+        <main className="main-content">
+
+          <section className="hero-section">
+
+            <p className="eyebrow">
+              Acoustic localization system
+            </p>
+
+            <h1>
+              Measure distance
+              <br />
+              through sound.
+            </h1>
+
+            <p className="hero-description">
+              Play a controlled ultrasonic chirp,
+              capture the acoustic response, and
+              estimate the target position using
+              the current acoustic fingerprint
+              model.
+            </p>
+
+          </section>
 
 
-      {/* =================================================
-          RESEARCH DASHBOARD
-      ================================================= */}
+          <section className="measurement-workspace">
+
+            <div>
+
+              <MeasurementPanel
+                onStatusChange={
+                  handleStatusChange
+                }
+                onResult={
+                  handleResult
+                }
+                onError={
+                  handleError
+                }
+                onMeasurementComplete={
+                  handleMeasurementComplete
+                }
+              />
+
+              {error && (
+
+                <div className="error-card">
+
+                  <strong>
+                    Measurement Error
+                  </strong>
+
+                  <p>
+                    {error}
+                  </p>
+
+                </div>
+
+              )}
+
+            </div>
 
 
-      <ResearchDashboard
+            <div className="measurement-side">
 
-        refreshKey={
-          historyRefreshKey
-        }
+              <StatusCard
+                status={status}
+              />
 
-      />
+              <ResultCard
+                result={result}
+              />
+
+            </div>
+
+          </section>
 
 
-      {/* =================================================
-          FOOTER
-      ================================================= */}
+          <MeasurementHistory
+            refreshKey={refreshKey}
+          />
 
 
-      <footer>
+          <ResearchDashboard />
+
+        </main>
+
+      )}
+
+
+      <footer className="site-footer">
 
         <span>
-          15–20 kHz · 1 second chirp
+          Acoustic Localization · B.Tech Project
         </span>
 
-
         <span>
-          Central server inference
+          Research prototype
         </span>
 
       </footer>
 
-
-    </main>
+    </div>
   );
 }
-
-
-export default App;
