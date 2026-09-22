@@ -5,6 +5,9 @@ import csv
 import sys
 from collections import Counter, defaultdict
 
+import librosa
+import numpy as np
+
 
 # =========================================================
 # PATH SETUP
@@ -13,15 +16,30 @@ from collections import Counter, defaultdict
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 
 if str(BACKEND_DIR) not in sys.path:
-    sys.path.insert(0, str(BACKEND_DIR))
+    sys.path.insert(
+        0,
+        str(BACKEND_DIR)
+    )
 
 
 # =========================================================
-# IMPORT EXISTING DATASET COMPONENTS
+# IMPORT DATASET COMPONENTS
 # =========================================================
 
-from app.dataset.storage import get_positions, get_reference_samples
-from app.dataset.predictor import DatasetPredictor
+from app.dataset.storage import (
+    get_positions,
+    get_reference_samples,
+    RECORDINGS_DIR,
+)
+
+from app.dataset.predictor import (
+    DatasetPredictor,
+)
+
+from app.audio.features import (
+    extract_stft_psd_fingerprint,
+    get_stft_psd_fingerprint_metadata,
+)
 
 
 # =========================================================
@@ -37,10 +55,12 @@ RESULTS_DIR = (
 
 RESULTS_CSV = (
     RESULTS_DIR
-    / "baseline_results.csv"
+    / "stft_psd_results.csv"
 )
 
-POSITION_NUMBERS = list(range(1, 11))
+POSITION_NUMBERS = list(
+    range(1, 11)
+)
 
 
 # =========================================================
@@ -49,7 +69,7 @@ POSITION_NUMBERS = list(range(1, 11))
 
 def safe_percentage(
     numerator: int,
-    denominator: int
+    denominator: int,
 ) -> float:
 
     if denominator == 0:
@@ -62,6 +82,73 @@ def safe_percentage(
     )
 
 
+def load_sample_audio(
+    sample: dict,
+) -> tuple[np.ndarray, int]:
+
+    recording_filename = (
+        sample.get(
+            "recording_filename"
+        )
+    )
+
+    if not recording_filename:
+        raise FileNotFoundError(
+            "Sample does not contain "
+            "a recording filename."
+        )
+
+    recording_path = (
+        RECORDINGS_DIR
+        / recording_filename
+    )
+
+    if not recording_path.exists():
+        raise FileNotFoundError(
+            f"Recording not found: "
+            f"{recording_path}"
+        )
+
+    audio, sample_rate = librosa.load(
+        str(recording_path),
+        sr=None,
+        mono=True,
+    )
+
+    if audio.size == 0:
+        raise ValueError(
+            f"Recording is empty: "
+            f"{recording_path}"
+        )
+
+    return (
+        audio.astype(
+            np.float64
+        ),
+        int(sample_rate),
+    )
+
+
+def build_fingerprint(
+    sample: dict,
+) -> np.ndarray:
+
+    audio, sample_rate = (
+        load_sample_audio(
+            sample
+        )
+    )
+
+    fingerprint = (
+        extract_stft_psd_fingerprint(
+            audio=audio,
+            sample_rate=sample_rate,
+        )
+    )
+
+    return fingerprint
+
+
 # =========================================================
 # MAIN
 # =========================================================
@@ -71,9 +158,52 @@ def main():
     print("=" * 80)
     print(
         "ACOUSTIC LOCALIZATION - "
-        "BASELINE DATASET EVALUATION"
+        "STFT/PSD FINGERPRINT EVALUATION"
     )
     print("=" * 80)
+
+    print(
+        "\nThis experiment uses the existing "
+        "raw WAV recordings."
+    )
+
+    print(
+        "The original baseline results "
+        "are not modified."
+    )
+
+    # -----------------------------------------------------
+    # STFT / PSD configuration
+    # -----------------------------------------------------
+
+    metadata = (
+        get_stft_psd_fingerprint_metadata(
+            sample_rate=48000
+        )
+    )
+
+    print("\nSTFT/PSD configuration:")
+    print(
+        f"  FFT size             : "
+        f"{int(metadata['n_fft'])}"
+    )
+
+    print(
+        f"  Hop length           : "
+        f"{int(metadata['hop_length'])}"
+    )
+
+    print(
+        f"  Frequency resolution : "
+        f"{metadata['frequency_resolution_hz']:.3f} Hz"
+    )
+
+    print(
+        f"  Fingerprint band     : "
+        f"{metadata['fingerprint_low_hz']:.0f}"
+        f"-"
+        f"{metadata['fingerprint_high_hz']:.0f} Hz"
+    )
 
     # -----------------------------------------------------
     # Load positions
@@ -108,20 +238,19 @@ def main():
 
     samples = get_reference_samples()
 
+    if not samples:
+        raise RuntimeError(
+            "No labelled samples found."
+        )
+
     print("\nDataset:")
     print(
         f"  Labelled samples: "
         f"{len(samples)}"
     )
 
-    if not samples:
-
-        raise RuntimeError(
-            "No labelled samples found."
-        )
-
     # -----------------------------------------------------
-    # Verify distribution
+    # Ground-truth distribution
     # -----------------------------------------------------
 
     ground_truth_counts = Counter()
@@ -132,17 +261,16 @@ def main():
             "position_id"
         )
 
-        if position_id is None:
-            continue
-
         position = position_by_id.get(
             position_id
         )
 
-        if position:
+        if position is not None:
 
             ground_truth_counts[
-                position["position_number"]
+                position[
+                    "position_number"
+                ]
             ] += 1
 
     print(
@@ -158,18 +286,110 @@ def main():
         )
 
     # -----------------------------------------------------
-    # Create predictor
+    # Create all fingerprints once
+    # -----------------------------------------------------
+    #
+    # The raw recordings are independent of the prediction
+    # reference set, so the fingerprint itself can be
+    # calculated once per sample.
+    #
+    # Normalization is still calculated inside the predictor
+    # using only the leave-one-out reference fingerprints.
+    # -----------------------------------------------------
+
+    print("\n")
+    print("=" * 80)
+    print(
+        "BUILDING STFT/PSD FINGERPRINTS"
+    )
+    print("=" * 80)
+
+    fingerprint_by_sample_id = {}
+
+    fingerprint_failures = []
+
+    total_samples = len(samples)
+
+    for index, sample in enumerate(
+        samples,
+        start=1
+    ):
+
+        sample_code = sample[
+            "sample_code"
+        ]
+
+        try:
+
+            fingerprint = (
+                build_fingerprint(
+                    sample
+                )
+            )
+
+            fingerprint_by_sample_id[
+                sample["id"]
+            ] = fingerprint
+
+            print(
+                f"[{index:3d}/{total_samples}] "
+                f"{sample_code:8s} | "
+                f"Fingerprint dimensions: "
+                f"{fingerprint.size}"
+            )
+
+        except Exception as error:
+
+            fingerprint_failures.append(
+                {
+                    "sample_id":
+                        sample["id"],
+
+                    "sample_code":
+                        sample_code,
+
+                    "error":
+                        str(error),
+                }
+            )
+
+            print(
+                f"[{index:3d}/{total_samples}] "
+                f"{sample_code:8s} | "
+                f"FAILED: {error}"
+            )
+
+    print(
+        "\nSuccessfully generated "
+        f"{len(fingerprint_by_sample_id)} "
+        f"fingerprints."
+    )
+
+    if fingerprint_failures:
+
+        print(
+            f"Fingerprint failures: "
+            f"{len(fingerprint_failures)}"
+        )
+
+    if not fingerprint_by_sample_id:
+
+        raise RuntimeError(
+            "No STFT/PSD fingerprints "
+            "could be generated."
+        )
+
+    # -----------------------------------------------------
+    # Predictor
     # -----------------------------------------------------
 
     predictor = DatasetPredictor()
 
     print(
-        f"\nKNN configuration:"
+        f"\nWKNN configuration:"
         f"\n  K = {predictor.K}"
-        f"\n  Features = "
-        f"{len(predictor.FEATURE_NAMES) if hasattr(predictor, 'FEATURE_NAMES') else 12}"
-        f"\n  Normalization = z-score"
         f"\n  Distance = Euclidean"
+        f"\n  Normalization = z-score"
         f"\n  Voting = inverse-distance weighted"
     )
 
@@ -183,10 +403,10 @@ def main():
     incorrect_count = 0
     skipped_count = 0
 
-    # confusion[actual][predicted]
-    confusion = defaultdict(Counter)
+    confusion = defaultdict(
+        Counter
+    )
 
-    # per-position statistics
     per_position = defaultdict(
         lambda: {
             "total": 0,
@@ -197,7 +417,8 @@ def main():
         }
     )
 
-    total_samples = len(samples)
+    correct_confidences = []
+    incorrect_confidences = []
 
     # -----------------------------------------------------
     # Leave-one-out evaluation
@@ -206,13 +427,19 @@ def main():
     print("\n")
     print("=" * 80)
     print(
-        "RUNNING LEAVE-ONE-OUT PREDICTIONS"
+        "RUNNING STFT/PSD LEAVE-ONE-OUT "
+        "EVALUATION"
     )
     print("=" * 80)
 
     print(
-        "\nEach sample is excluded from "
-        "its own reference set."
+        "\nEach test sample is excluded "
+        "from its own reference set."
+    )
+
+    print(
+        "Normalization statistics are "
+        "calculated only from the reference samples."
     )
 
     print()
@@ -227,7 +454,10 @@ def main():
     ):
 
         sample_id = sample["id"]
-        sample_code = sample["sample_code"]
+
+        sample_code = sample[
+            "sample_code"
+        ]
 
         ground_truth_id = sample.get(
             "position_id"
@@ -255,6 +485,28 @@ def main():
 
             continue
 
+        # -------------------------------------------------
+        # Missing fingerprint
+        # -------------------------------------------------
+
+        current_fingerprint = (
+            fingerprint_by_sample_id.get(
+                sample_id
+            )
+        )
+
+        if current_fingerprint is None:
+
+            skipped_count += 1
+
+            print(
+                f"[{index:3d}/{total_samples}] "
+                f"{sample_code:8s} | "
+                f"SKIPPED - fingerprint unavailable"
+            )
+
+            continue
+
         actual_number = (
             ground_truth_position[
                 "position_number"
@@ -262,8 +514,7 @@ def main():
         )
 
         # -------------------------------------------------
-        # Get reference samples
-        # Exclude current sample
+        # Reference samples
         # -------------------------------------------------
 
         reference_samples = (
@@ -272,25 +523,64 @@ def main():
             )
         )
 
-        if not reference_samples:
+        reference_with_fingerprints = []
+
+        for reference in reference_samples:
+
+            reference_fingerprint = (
+                fingerprint_by_sample_id.get(
+                    reference["id"]
+                )
+            )
+
+            if reference_fingerprint is None:
+                continue
+
+            reference_copy = dict(
+                reference
+            )
+
+            reference_copy[
+                "_stft_psd_fingerprint"
+            ] = reference_fingerprint
+
+            reference_with_fingerprints.append(
+                reference_copy
+            )
+
+        # -------------------------------------------------
+        # Build test sample copy
+        # -------------------------------------------------
+
+        test_sample = dict(
+            sample
+        )
+
+        test_sample[
+            "_stft_psd_fingerprint"
+        ] = current_fingerprint
+
+        if not reference_with_fingerprints:
 
             skipped_count += 1
 
             print(
                 f"[{index:3d}/{total_samples}] "
                 f"{sample_code:8s} | "
-                f"SKIPPED - no references"
+                f"SKIPPED - no reference fingerprints"
             )
 
             continue
 
         # -------------------------------------------------
-        # Existing predictor
+        # Prediction
         # -------------------------------------------------
 
-        prediction = predictor.predict(
-            sample,
-            reference_samples
+        prediction = (
+            predictor.predict_stft_psd(
+                test_sample,
+                reference_with_fingerprints,
+            )
         )
 
         predicted_position_id = (
@@ -317,7 +607,7 @@ def main():
         )
 
         # -------------------------------------------------
-        # Convert predicted ID to position number
+        # Predicted position number
         # -------------------------------------------------
 
         predicted_position_number = None
@@ -351,11 +641,13 @@ def main():
         if is_correct:
 
             evaluation = "correct"
+
             correct_count += 1
 
         else:
 
             evaluation = "incorrect"
+
             incorrect_count += 1
 
         # -------------------------------------------------
@@ -390,18 +682,37 @@ def main():
 
         if confidence is not None:
 
-            stats["confidence_sum"] += float(
+            confidence_value = float(
                 confidence
             )
 
-            stats["confidence_count"] += 1
+            stats[
+                "confidence_sum"
+            ] += confidence_value
+
+            stats[
+                "confidence_count"
+            ] += 1
+
+            if is_correct:
+
+                correct_confidences.append(
+                    confidence_value
+                )
+
+            else:
+
+                incorrect_confidences.append(
+                    confidence_value
+                )
 
         # -------------------------------------------------
-        # Nearest neighbors
+        # Nearest-neighbour information
         # -------------------------------------------------
 
         nearest_codes = []
         nearest_positions = []
+        nearest_distances = []
 
         for neighbor in nearest_samples[:5]:
 
@@ -415,6 +726,13 @@ def main():
             nearest_positions.append(
                 neighbor.get(
                     "position_name",
+                    ""
+                )
+            )
+
+            nearest_distances.append(
+                neighbor.get(
+                    "distance",
                     ""
                 )
             )
@@ -500,6 +818,13 @@ def main():
                     " | ".join(
                         nearest_positions
                     ),
+
+                "nearest_distances":
+                    " | ".join(
+                        str(value)
+                        for value
+                        in nearest_distances
+                    ),
             }
         )
 
@@ -538,12 +863,46 @@ def main():
     # OVERALL RESULTS
     # =====================================================
 
-    evaluated_count = len(results)
+    evaluated_count = len(
+        results
+    )
 
     accuracy = safe_percentage(
         correct_count,
         evaluated_count
     )
+
+    # -----------------------------------------------------
+    # Average confidence
+    # -----------------------------------------------------
+
+    if correct_confidences:
+
+        average_correct_confidence = (
+            float(
+                np.mean(
+                    correct_confidences
+                )
+            )
+        )
+
+    else:
+
+        average_correct_confidence = 0.0
+
+    if incorrect_confidences:
+
+        average_incorrect_confidence = (
+            float(
+                np.mean(
+                    incorrect_confidences
+                )
+            )
+        )
+
+    else:
+
+        average_incorrect_confidence = 0.0
 
     # -----------------------------------------------------
     # Save CSV
@@ -571,6 +930,7 @@ def main():
         "nearest_4",
         "nearest_5",
         "nearest_positions",
+        "nearest_distances",
     ]
 
     with RESULTS_CSV.open(
@@ -591,12 +951,14 @@ def main():
         )
 
     # =====================================================
-    # PRINT OVERALL RESULTS
+    # PRINT RESULTS
     # =====================================================
 
     print("\n")
     print("=" * 80)
-    print("BASELINE RESULTS")
+    print(
+        "STFT/PSD RESULTS"
+    )
     print("=" * 80)
 
     print(
@@ -605,28 +967,45 @@ def main():
     )
 
     print(
-        f"Evaluated samples     : "
+        f"Fingerprints generated : "
+        f"{len(fingerprint_by_sample_id)}"
+    )
+
+    print(
+        f"Evaluated samples      : "
         f"{evaluated_count}"
     )
 
     print(
-        f"Skipped samples       : "
+        f"Skipped samples        : "
         f"{skipped_count}"
     )
 
     print(
-        f"Correct predictions   : "
+        f"Correct predictions    : "
         f"{correct_count}"
     )
 
     print(
-        f"Incorrect predictions : "
+        f"Incorrect predictions  : "
         f"{incorrect_count}"
     )
 
     print(
-        f"\nBASELINE ACCURACY     : "
+        f"\nSTFT/PSD ACCURACY      : "
         f"{accuracy:.2f}%"
+    )
+
+    print(
+        f"\nAverage confidence "
+        f"(correct)   : "
+        f"{average_correct_confidence * 100:.2f}%"
+    )
+
+    print(
+        f"Average confidence "
+        f"(incorrect) : "
+        f"{average_incorrect_confidence * 100:.2f}%"
     )
 
     # =====================================================
@@ -635,7 +1014,9 @@ def main():
 
     print("\n")
     print("=" * 80)
-    print("PER-POSITION ACCURACY")
+    print(
+        "STFT/PSD PER-POSITION ACCURACY"
+    )
     print("=" * 80)
 
     for position_number in POSITION_NUMBERS:
@@ -645,18 +1026,27 @@ def main():
         ]
 
         total = stats["total"]
+
         correct = stats["correct"]
 
-        position_accuracy = safe_percentage(
-            correct,
-            total
+        position_accuracy = (
+            safe_percentage(
+                correct,
+                total
+            )
         )
 
-        if stats["confidence_count"] > 0:
+        if stats[
+            "confidence_count"
+        ] > 0:
 
             average_confidence = (
-                stats["confidence_sum"]
-                / stats["confidence_count"]
+                stats[
+                    "confidence_sum"
+                ]
+                / stats[
+                    "confidence_count"
+                ]
             )
 
         else:
@@ -678,7 +1068,9 @@ def main():
 
     print("\n")
     print("=" * 80)
-    print("CONFUSION MATRIX")
+    print(
+        "STFT/PSD CONFUSION MATRIX"
+    )
     print("=" * 80)
 
     print(
@@ -697,7 +1089,9 @@ def main():
         )
     )
 
-    print("-" * 70)
+    print(
+        "-" * 70
+    )
 
     for actual_number in POSITION_NUMBERS:
 
@@ -727,7 +1121,10 @@ def main():
 
         for predicted_number in POSITION_NUMBERS:
 
-            if actual_number == predicted_number:
+            if (
+                actual_number
+                == predicted_number
+            ):
                 continue
 
             count = confusion[
@@ -742,7 +1139,7 @@ def main():
                     (
                         count,
                         actual_number,
-                        predicted_number
+                        predicted_number,
                     )
                 )
 
@@ -752,7 +1149,9 @@ def main():
 
     print("\n")
     print("=" * 80)
-    print("MOST COMMON POSITION CONFUSIONS")
+    print(
+        "STFT/PSD MOST COMMON CONFUSIONS"
+    )
     print("=" * 80)
 
     if confusion_pairs:
@@ -760,7 +1159,7 @@ def main():
         for (
             count,
             actual,
-            predicted
+            predicted,
         ) in confusion_pairs[:10]:
 
             print(
@@ -776,12 +1175,48 @@ def main():
         )
 
     # =====================================================
+    # BASELINE COMPARISON
+    # =====================================================
+
+    baseline_accuracy = 82.50
+
+    improvement = (
+        accuracy
+        - baseline_accuracy
+    )
+
+    print("\n")
+    print("=" * 80)
+    print(
+        "COMPARISON WITH CURRENT BASELINE"
+    )
+    print("=" * 80)
+
+    print(
+        f"\nCurrent baseline "
+        f"(12 handcrafted features): "
+        f"{baseline_accuracy:.2f}%"
+    )
+
+    print(
+        f"STFT/PSD fingerprint: "
+        f"{accuracy:.2f}%"
+    )
+
+    print(
+        f"Difference: "
+        f"{improvement:+.2f} percentage points"
+    )
+
+    # =====================================================
     # COMPLETE
     # =====================================================
 
     print("\n")
     print("=" * 80)
-    print("EVALUATION COMPLETE")
+    print(
+        "STFT/PSD EVALUATION COMPLETE"
+    )
     print("=" * 80)
 
     print(
@@ -790,8 +1225,11 @@ def main():
     )
 
     print(
-        "\nThe evaluation did not modify "
-        "the dataset database."
+        "\nThe dataset database was not modified."
+    )
+
+    print(
+        "The existing baseline results were not modified."
     )
 
 

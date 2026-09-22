@@ -8,7 +8,7 @@ import type {
 
 
 const API_BASE =
-  "https://life-leonard-greensboro-rabbit.trycloudflare.com";
+  "https://framework-wayne-walls-attend.trycloudflare.com";
 
 
 /* =======================================================

@@ -1,5 +1,5 @@
 const API_BASE_URL =
-  "https://life-leonard-greensboro-rabbit.trycloudflare.com";
+  "https://framework-wayne-walls-attend.trycloudflare.com";
 
 
 export type TargetPresence =

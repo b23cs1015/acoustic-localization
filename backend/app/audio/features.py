@@ -1,8 +1,12 @@
-from typing import Dict
+from typing import Dict, Tuple
 
 import librosa
 import numpy as np
 
+
+# =========================================================
+# GENERAL AUDIO FEATURES
+# =========================================================
 
 def extract_features(
     audio: np.ndarray,
@@ -10,14 +14,13 @@ def extract_features(
 ) -> Dict[str, float]:
 
     if len(audio) == 0:
-
         raise ValueError(
             "Audio recording is empty."
         )
 
-    # =========================================================
+    # =====================================================
     # REMOVE DC OFFSET
-    # =========================================================
+    # =====================================================
 
     audio = (
         audio
@@ -26,13 +29,12 @@ def extract_features(
 
     duration = (
         len(audio)
-        /
-        sample_rate
+        / sample_rate
     )
 
-    # =========================================================
+    # =====================================================
     # BASIC SIGNAL FEATURES
-    # =========================================================
+    # =====================================================
 
     rms = np.sqrt(
         np.mean(
@@ -46,23 +48,21 @@ def extract_features(
 
     rms_db = (
         20
-        *
-        np.log10(
+        * np.log10(
             rms + 1e-12
         )
     )
 
     peak_db = (
         20
-        *
-        np.log10(
+        * np.log10(
             peak + 1e-12
         )
     )
 
-    # =========================================================
+    # =====================================================
     # STFT
-    # =========================================================
+    # =====================================================
 
     n_fft = 4096
     hop_length = 1024
@@ -77,55 +77,43 @@ def extract_features(
         spectrum_complex
     )
 
-    frequencies = (
-        librosa.fft_frequencies(
-            sr=sample_rate,
-            n_fft=n_fft,
-        )
+    frequencies = librosa.fft_frequencies(
+        sr=sample_rate,
+        n_fft=n_fft,
     )
 
-    # =========================================================
+    # =====================================================
     # SPECTRAL FEATURES
-    # =========================================================
+    # =====================================================
 
-    centroid = (
-        librosa.feature.spectral_centroid(
-            S=spectrum,
-            sr=sample_rate,
-        )
+    centroid = librosa.feature.spectral_centroid(
+        S=spectrum,
+        sr=sample_rate,
     )
 
-    bandwidth = (
-        librosa.feature.spectral_bandwidth(
-            S=spectrum,
-            sr=sample_rate,
-        )
+    bandwidth = librosa.feature.spectral_bandwidth(
+        S=spectrum,
+        sr=sample_rate,
     )
 
-    rolloff = (
-        librosa.feature.spectral_rolloff(
-            S=spectrum,
-            sr=sample_rate,
-            roll_percent=0.85,
-        )
+    rolloff = librosa.feature.spectral_rolloff(
+        S=spectrum,
+        sr=sample_rate,
+        roll_percent=0.85,
     )
 
-    flatness = (
-        librosa.feature.spectral_flatness(
-            S=spectrum,
-        )
+    flatness = librosa.feature.spectral_flatness(
+        S=spectrum,
     )
 
-    zcr = (
-        librosa.feature.zero_crossing_rate(
-            audio,
-            hop_length=hop_length,
-        )
+    zcr = librosa.feature.zero_crossing_rate(
+        audio,
+        hop_length=hop_length,
     )
 
-    # =========================================================
+    # =====================================================
     # 15–20 kHz ULTRASONIC ENERGY
-    # =========================================================
+    # =====================================================
 
     ultrasonic_mask = (
         (frequencies >= 15000)
@@ -139,9 +127,7 @@ def extract_features(
         )
     )
 
-    if np.any(
-        ultrasonic_mask
-    ):
+    if np.any(ultrasonic_mask):
 
         ultrasonic_power = np.mean(
             spectrum[
@@ -151,8 +137,7 @@ def extract_features(
 
         ultrasonic_db = (
             10
-            *
-            np.log10(
+            * np.log10(
                 ultrasonic_power
                 + 1e-12
             )
@@ -166,8 +151,7 @@ def extract_features(
 
         ultrasonic_peak_db = (
             10
-            *
-            np.log10(
+            * np.log10(
                 ultrasonic_peak
                 + 1e-12
             )
@@ -178,9 +162,9 @@ def extract_features(
         ultrasonic_db = np.nan
         ultrasonic_peak_db = np.nan
 
-    # =========================================================
+    # =====================================================
     # FREQUENCY FINGERPRINT
-    # =========================================================
+    # =====================================================
 
     bands = [
         (15000, 16000),
@@ -208,8 +192,7 @@ def extract_features(
 
             db = (
                 10
-                *
-                np.log10(
+                * np.log10(
                     power + 1e-12
                 )
             )
@@ -222,16 +205,9 @@ def extract_features(
             f"{low // 1000}_{high // 1000}kHz_dB"
         ] = float(db)
 
-    # =========================================================
+    # =====================================================
     # MFCC
-    # =========================================================
-    #
-    # Keep extracting these because they are useful for
-    # future speech/environment experiments.
-    #
-    # The current chirp localization fingerprint does
-    # not depend on them.
-    # =========================================================
+    # =====================================================
 
     mfcc = librosa.feature.mfcc(
         y=audio,
@@ -263,9 +239,9 @@ def extract_features(
             )
         )
 
-    # =========================================================
+    # =====================================================
     # FINAL FEATURE DICTIONARY
-    # =========================================================
+    # =====================================================
 
     result: Dict[str, float] = {
 
@@ -352,3 +328,249 @@ def extract_features(
     )
 
     return result
+
+
+# =========================================================
+# STFT / PSD ACOUSTIC FINGERPRINT
+# =========================================================
+#
+# This is a separate experimental representation.
+#
+# The existing 12-feature representation above is NOT
+# replaced.
+#
+# The implementation follows the acoustic fingerprinting
+# direction of Wang et al.:
+#
+#   acoustic chirp
+#       ↓
+#   STFT
+#       ↓
+#   PSD
+#       ↓
+#   frequency-domain fingerprint
+#
+# We retain the frequency region used by our current
+# ultrasonic chirp (15–20 kHz).
+# =========================================================
+
+STFT_PSD_N_FFT = 4096
+STFT_PSD_HOP_LENGTH = 1024
+
+STFT_PSD_LOW_HZ = 15000.0
+STFT_PSD_HIGH_HZ = 20000.0
+
+
+def extract_stft_psd_fingerprint(
+    audio: np.ndarray,
+    sample_rate: int,
+) -> np.ndarray:
+    """
+    Extract a fixed-size STFT/PSD acoustic fingerprint.
+
+    The fingerprint is constructed from the average PSD
+    over STFT frames in the 15–20 kHz sensing band.
+
+    This is intentionally separate from extract_features()
+    so that the original baseline remains unchanged.
+
+    Returns
+    -------
+    np.ndarray
+        One-dimensional PSD fingerprint.
+    """
+
+    if audio is None:
+        raise ValueError(
+            "Audio signal is None."
+        )
+
+    if len(audio) == 0:
+        raise ValueError(
+            "Audio recording is empty."
+        )
+
+    if sample_rate <= 0:
+        raise ValueError(
+            "Sample rate must be positive."
+        )
+
+    # -----------------------------------------------------
+    # Remove DC offset
+    # -----------------------------------------------------
+
+    audio = (
+        audio.astype(
+            np.float64,
+            copy=False
+        )
+        - np.mean(audio)
+    )
+
+    # -----------------------------------------------------
+    # STFT
+    # -----------------------------------------------------
+
+    stft_complex = librosa.stft(
+        audio,
+        n_fft=STFT_PSD_N_FFT,
+        hop_length=STFT_PSD_HOP_LENGTH,
+        window="hann",
+        center=True,
+    )
+
+    # -----------------------------------------------------
+    # Power Spectral Density / power representation
+    # -----------------------------------------------------
+
+    power_spectrum = (
+        np.abs(
+            stft_complex
+        ) ** 2
+    )
+
+    frequencies = librosa.fft_frequencies(
+        sr=sample_rate,
+        n_fft=STFT_PSD_N_FFT,
+    )
+
+    # -----------------------------------------------------
+    # Restrict fingerprint to chirp band
+    # -----------------------------------------------------
+
+    upper_frequency = min(
+        STFT_PSD_HIGH_HZ,
+        sample_rate / 2.0
+    )
+
+    frequency_mask = (
+        (frequencies >= STFT_PSD_LOW_HZ)
+        &
+        (frequencies <= upper_frequency)
+    )
+
+    if not np.any(
+        frequency_mask
+    ):
+        raise ValueError(
+            "The recording sample rate does not "
+            "contain the required 15–20 kHz band."
+        )
+
+    selected_power = power_spectrum[
+        frequency_mask,
+        :
+    ]
+
+    # -----------------------------------------------------
+    # Average PSD over time frames
+    # -----------------------------------------------------
+    #
+    # This produces a fixed-length fingerprint
+    # independent of the exact number of STFT frames.
+    #
+    # Each dimension corresponds to a frequency bin.
+    # -----------------------------------------------------
+
+    fingerprint = np.mean(
+        selected_power,
+        axis=1
+    )
+
+    # -----------------------------------------------------
+    # Convert power to logarithmic scale
+    # -----------------------------------------------------
+    #
+    # Log power reduces the extremely large dynamic range
+    # typically present in acoustic spectra.
+    # -----------------------------------------------------
+
+    fingerprint_db = (
+        10.0
+        * np.log10(
+            fingerprint
+            + 1e-12
+        )
+    )
+
+    # -----------------------------------------------------
+    # Numerical safety
+    # -----------------------------------------------------
+
+    fingerprint_db = np.nan_to_num(
+        fingerprint_db,
+        nan=0.0,
+        posinf=0.0,
+        neginf=0.0,
+    )
+
+    return fingerprint_db.astype(
+        np.float64
+    )
+
+
+# =========================================================
+# STFT / PSD FINGERPRINT INFORMATION
+# =========================================================
+
+def get_stft_psd_fingerprint_metadata(
+    sample_rate: int,
+) -> Dict[str, float]:
+
+    upper_frequency = min(
+        STFT_PSD_HIGH_HZ,
+        sample_rate / 2.0
+    )
+
+    frequency_bins = (
+        STFT_PSD_N_FFT // 2
+        + 1
+    )
+
+    frequency_resolution = (
+        sample_rate
+        / STFT_PSD_N_FFT
+    )
+
+    selected_bins = int(
+        np.sum(
+            (
+                np.fft.rfftfreq(
+                    STFT_PSD_N_FFT,
+                    d=1.0 / sample_rate
+                )
+                >= STFT_PSD_LOW_HZ
+            )
+            &
+            (
+                np.fft.rfftfreq(
+                    STFT_PSD_N_FFT,
+                    d=1.0 / sample_rate
+                )
+                <= upper_frequency
+            )
+        )
+    )
+
+    return {
+        "n_fft":
+            float(STFT_PSD_N_FFT),
+
+        "hop_length":
+            float(STFT_PSD_HOP_LENGTH),
+
+        "frequency_resolution_hz":
+            float(frequency_resolution),
+
+        "total_frequency_bins":
+            float(frequency_bins),
+
+        "fingerprint_low_hz":
+            float(STFT_PSD_LOW_HZ),
+
+        "fingerprint_high_hz":
+            float(upper_frequency),
+
+        "fingerprint_dimensions":
+            float(selected_bins),
+    }
