@@ -1,6 +1,30 @@
-const API_BASE_URL =
-  "https://framework-wayne-walls-attend.trycloudflare.com";
+/*
+ * ============================================================
+ * DATASET API
+ * ============================================================
+ *
+ * Experiment-scoped acoustic dataset API.
+ *
+ * Important design rule:
+ *
+ * Every dataset operation is scoped by experiment_id.
+ *
+ * EXP-001 data must never be used when EXP-002 is selected.
+ */
 
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL
+
+const DATASET_BASE =
+  `${API_BASE}/api/dataset`;
+
+const EXPERIMENT_BASE =
+  `${API_BASE}/api/experiments`;
+
+
+/* ============================================================
+   TYPES
+   ============================================================ */
 
 export type TargetPresence =
   | "yes"
@@ -8,171 +32,61 @@ export type TargetPresence =
   | "cant_say";
 
 
-export type PredictionEvaluation =
-  | "correct"
-  | "incorrect"
-  | "not_evaluable";
-
-
 export interface DatasetPosition {
-
   id: number;
-
   name: string;
-
-  position_number: number;
-
-  created_at: string;
-
+  experiment_id?: number | null;
+  created_at?: string | null;
 }
 
 
 export interface DatasetSample {
-
   id: number;
 
   sample_code: string;
 
   timestamp: string;
 
-  recording_filename: string;
+  experiment_id?: number | null;
 
-  position_id: number | null;
+  position_id?: number | null;
 
-  position_name: string | null;
+  position_name?: string | null;
 
   target_presence: TargetPresence;
 
-  distance_cm: number | null;
+  distance_cm?: number | null;
 
-  remarks: string | null;
+  remarks?: string | null;
 
-  features: Record<string, number>;
+  recording_filename?: string | null;
 
-  duration_seconds: number;
+  recording_path?: string | null;
 
-  sample_rate: number;
+  predicted_position_id?: number | null;
 
-  predicted_position_id:
-    | number
-    | null;
+  predicted_position_name?: string | null;
 
-  predicted_position_name:
+  prediction_confidence?: number | null;
+
+  prediction_evaluation?:
+    | "correct"
+    | "incorrect"
+    | "not_evaluable"
     | string
     | null;
 
-  prediction_confidence:
-    | number
-    | null;
+  prediction_timestamp?: string | null;
 
-  prediction_evaluation:
-    | PredictionEvaluation
-    | null;
+  features?: Record<string, unknown> | null;
 
-  prediction_timestamp:
-    | string
-    | null;
+  acoustic_features?: Record<string, unknown> | null;
 
-}
-
-
-export interface NearestSample {
-
-  sample_id: number;
-
-  sample_code: string;
-
-  position_id?: number;
-
-  position_name: string | null;
-
-  distance: number;
-
-}
-
-
-export interface PredictionResult {
-
-  sample_id: number;
-
-  predicted_position_id:
-    | number
-    | null;
-
-  predicted_position_name:
-    | string
-    | null;
-
-  confidence:
-    | number
-    | null;
-
-  ground_truth_position_id:
-    | number
-    | null;
-
-  ground_truth_position_name:
-    | string
-    | null;
-
-  evaluation:
-    PredictionEvaluation;
-
-  nearest_samples:
-    NearestSample[];
-
-}
-
-
-/* =======================================================
-   BULK PREDICTION
-   ======================================================= */
-
-export interface PredictAllResult {
-
-  total_samples: number;
-
-  evaluated_samples: number;
-
-  skipped_samples: number;
-
-  correct_predictions: number;
-
-  incorrect_predictions: number;
-
-  accuracy: number | null;
-
-  results: Array<{
-
-    sample_id: number;
-
-    sample_code: string;
-
-    ground_truth_position_id:
-      number | null;
-
-    ground_truth_position_name:
-      string | null;
-
-    predicted_position_id:
-      number | null;
-
-    predicted_position_name:
-      string | null;
-
-    confidence:
-      number | null;
-
-    evaluation:
-      PredictionEvaluation;
-
-  }>;
-
+  [key: string]: unknown;
 }
 
 
 export interface DatasetSummary {
-
   total_samples: number;
 
   labeled_samples: number;
@@ -187,593 +101,1122 @@ export interface DatasetSummary {
 
   positions: Record<string, number>;
 
-  target_presence: Record<
-    TargetPresence,
-    number
-  >;
+  target_presence: Record<string, number>;
 
-  distances: Record<
-    string,
-    number
-  >;
-
+  distances: Record<string, number>;
 }
 
 
-interface ApiResponse<T> {
+export interface Experiment {
+  id: number;
 
-  success: boolean;
+  name: string;
 
-  message?: string;
+  description?: string | null;
+
+  created_at: string;
+}
+
+
+export interface ExperimentStats {
+  experiment_id: number;
+
+  experiment_name?: string | null;
+
+  total_samples: number;
+
+  total_positions: number;
+
+  completed_predictions?: number | null;
+
+  correct_predictions?: number | null;
+
+  incorrect_predictions?: number | null;
+
+  unclassified_predictions?: number | null;
+}
+
+
+export interface CreateExperimentRequest {
+  name: string;
+
+  description?: string;
+}
+
+
+export interface CreatePositionRequest {
+  name: string;
+}
+
+
+export interface DatasetSampleFilters {
+  experiment_id?: number;
+}
+
+
+export interface SaveSampleData {
+  experiment_id?: number;
+
+  experimentId?: number;
+
+  position_id?: number | null;
+
+  positionId?: number | null;
+
+  target_presence?: TargetPresence;
+
+  targetPresence?: TargetPresence;
+
+  distance_cm?: number | null;
+
+  distanceCm?: number | null;
+
+  remarks?: string;
+}
+
+
+export interface NearestSample {
+  sample_id: number;
+
+  sample_code?: string | null;
+
+  position_id?: number | null;
+
+  position_name?: string | null;
+
+  distance: number;
+}
+
+
+export interface PredictionResult {
+  sample_id?: number | null;
+
+  predicted_position_id?: number | null;
+
+  predicted_position_name?: string | null;
+
+  confidence?: number | null;
+
+  ground_truth_position_id?: number | null;
+
+  ground_truth_position_name?: string | null;
+
+  evaluation?:
+    | "correct"
+    | "incorrect"
+    | "not_evaluable"
+    | string
+    | null;
+
+  nearest_samples: NearestSample[];
 
   [key: string]: unknown;
-
 }
 
 
-async function request<T>(
-  path: string,
-  options?: RequestInit
+export interface PredictAllResult {
+  experiment_id?: number;
+
+  total_samples?: number;
+
+  evaluated_samples: number;
+
+  skipped_samples?: number;
+
+  correct_predictions: number;
+
+  incorrect_predictions: number;
+
+  accuracy: number | null;
+
+  [key: string]: unknown;
+}
+
+
+/* ============================================================
+   RESPONSE HELPERS
+   ============================================================ */
+
+async function parseResponse<T>(
+  response: Response
 ): Promise<T> {
+
+  if (!response.ok) {
+
+    let message =
+      `Request failed with status ${response.status}`;
+
+    try {
+
+      const data =
+        await response.json();
+
+      if (
+        typeof data?.detail ===
+        "string"
+      ) {
+        message =
+          data.detail;
+      } else if (
+        typeof data?.message ===
+        "string"
+      ) {
+        message =
+          data.message;
+      }
+
+    } catch {
+      /* Ignore malformed error response. */
+    }
+
+    throw new Error(message);
+  }
+
+  return response.json();
+}
+
+
+/* ============================================================
+   GENERIC UNWRAPPERS
+   ============================================================ */
+
+function unwrapObject<T>(
+  data: unknown,
+  key: string
+): T {
+
+  if (
+    data &&
+    typeof data === "object" &&
+    key in data
+  ) {
+
+    const value =
+      (data as Record<string, unknown>)[
+        key
+      ];
+
+    return value as T;
+  }
+
+  return data as T;
+}
+
+
+/* ============================================================
+   EXPERIMENT API
+   ============================================================ */
+
+export async function getExperiments(): Promise<Experiment[]> {
+  const response = await fetch(`${EXPERIMENT_BASE}`);
+
+  const data = await parseResponse<
+    | Experiment[]
+    | {
+        value?: Experiment[];
+        experiments?: Experiment[];
+        Count?: number;
+      }
+  >(response);
+
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  return data.value ?? data.experiments ?? [];
+}
+
+
+export async function getExperiment(
+  experimentId: number
+): Promise<Experiment> {
 
   const response =
     await fetch(
-      `${API_BASE_URL}${path}`,
-      options
+      `${EXPERIMENT_BASE}/${experimentId}`
     );
 
-
-  let payload:
-    ApiResponse<T> | null = null;
-
-
-  try {
-
-    payload =
-      await response.json();
-
-  } catch {
-
-    throw new Error(
-      `Server returned an invalid response (${response.status}).`
+  const data =
+    await parseResponse<unknown>(
+      response
     );
 
-  }
-
-
-  if (
-    !response.ok ||
-    payload === null ||
-    !payload.success
-  ) {
-
-    throw new Error(
-      payload?.message ||
-      `Request failed with status ${response.status}.`
-    );
-
-  }
-
-
-  return payload as T;
-
+  return unwrapObject<Experiment>(
+    data,
+    "experiment"
+  );
 }
 
 
-/* =======================================================
-   POSITIONS
-   ======================================================= */
-
-export async function getDatasetPositions():
-  Promise<DatasetPosition[]> {
+export async function createExperiment(
+  data: CreateExperimentRequest
+): Promise<Experiment> {
 
   const response =
-    await request<{
-      positions:
-        DatasetPosition[];
-    }>(
-      "/api/dataset/positions"
-    );
-
-
-  return Array.isArray(
-    response.positions
-  )
-    ? response.positions
-    : [];
-
-}
-
-
-export async function createDatasetPosition(
-  name: string
-): Promise<DatasetPosition> {
-
-  const response =
-    await request<{
-      position:
-        DatasetPosition;
-    }>(
-      "/api/dataset/positions",
+    await fetch(
+      `${EXPERIMENT_BASE}`,
       {
         method: "POST",
 
         headers: {
           "Content-Type":
-            "application/json"
+            "application/json",
         },
 
-        body: JSON.stringify({
-          name
-        })
+        body:
+          JSON.stringify(data),
       }
     );
 
-
-  if (
-    !response.position
-  ) {
-
-    throw new Error(
-      "Server did not return the created position."
+  const result =
+    await parseResponse<unknown>(
+      response
     );
 
+  return unwrapObject<Experiment>(
+    result,
+    "experiment"
+  );
+}
+
+
+export async function getExperimentStats(
+  experimentId: number
+): Promise<ExperimentStats> {
+
+  const response =
+    await fetch(
+      `${EXPERIMENT_BASE}/${experimentId}/stats`
+    );
+
+  const data =
+    await parseResponse<unknown>(
+      response
+    );
+
+  return unwrapObject<ExperimentStats>(
+    data,
+    "stats"
+  );
+}
+
+
+/* ============================================================
+   EXPERIMENT POSITIONS
+   ============================================================ */
+
+/*
+ * We first try the experiment API.
+ *
+ * If that endpoint is unavailable or returns no positions,
+ * we fall back to the dataset-scoped endpoint:
+ *
+ * /api/dataset/positions?experiment_id=X
+ *
+ * This is important because the dataset router already
+ * explicitly scopes positions by experiment.
+ */
+
+export async function getExperimentPositions(
+  experimentId: number
+): Promise<DatasetPosition[]> {
+
+  let experimentError:
+    | unknown
+    | null = null;
+
+  try {
+
+    const response =
+      await fetch(
+        `${EXPERIMENT_BASE}/${experimentId}/positions`
+      );
+
+    if (response.ok) {
+
+      const data =
+        await parseResponse<unknown>(
+          response
+        );
+
+      const positions =
+        extractPositions(data);
+
+      if (
+        positions.length > 0
+      ) {
+        return positions;
+      }
+    }
+
+  } catch (error) {
+
+    experimentError =
+      error;
   }
 
 
-  return response.position;
+  /*
+   * Fallback to dataset API.
+   */
 
+  try {
+
+    const response =
+      await fetch(
+        `${DATASET_BASE}/positions?experiment_id=${experimentId}`
+      );
+
+    const data =
+      await parseResponse<unknown>(
+        response
+      );
+
+    const positions =
+      extractPositions(data);
+
+    return positions;
+
+  } catch (datasetError) {
+
+    if (experimentError) {
+      throw experimentError;
+    }
+
+    throw datasetError;
+  }
 }
 
 
-/* =======================================================
-   SAMPLES
-   ======================================================= */
+function extractPositions(
+  data: unknown
+): DatasetPosition[] {
 
-export async function getDatasetSamples():
-  Promise<DatasetSample[]> {
+  if (
+    Array.isArray(data)
+  ) {
+    return data as DatasetPosition[];
+  }
+
+  if (
+    data &&
+    typeof data === "object"
+  ) {
+
+    const object =
+      data as Record<
+        string,
+        unknown
+      >;
+
+    if (
+      Array.isArray(
+        object.positions
+      )
+    ) {
+      return object.positions as DatasetPosition[];
+    }
+
+    if (
+      Array.isArray(
+        object.value
+      )
+    ) {
+      return object.value as DatasetPosition[];
+    }
+  }
+
+  return [];
+}
+
+
+/* ============================================================
+   CREATE POSITION
+   ============================================================ */
+
+export async function createExperimentPosition(
+  experimentId: number,
+
+  data: CreatePositionRequest
+): Promise<DatasetPosition> {
+
+  /*
+   * Use the dataset endpoint because it explicitly accepts
+   * experiment_id and returns experiment-scoped positions.
+   */
 
   const response =
-    await request<{
-      samples:
-        DatasetSample[];
-    }>(
-      "/api/dataset/samples"
+    await fetch(
+      `${DATASET_BASE}/positions?experiment_id=${experimentId}`,
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+
+        body:
+          JSON.stringify(data),
+      }
     );
 
+  const result =
+    await parseResponse<unknown>(
+      response
+    );
 
-  return Array.isArray(
-    response.samples
-  )
-    ? response.samples
-    : [];
-
+  return unwrapObject<DatasetPosition>(
+    result,
+    "position"
+  );
 }
 
 
-export async function getDatasetSample(
-  id: number
+/* ============================================================
+   POSITION API
+   ============================================================ */
+
+export async function getPositions(
+  experimentId = 1
+): Promise<DatasetPosition[]> {
+
+  return getExperimentPositions(
+    experimentId
+  );
+}
+
+
+export async function createPosition(
+  name: string,
+
+  experimentId = 1
+): Promise<DatasetPosition> {
+
+  return createExperimentPosition(
+    experimentId,
+    { name }
+  );
+}
+
+
+/* ============================================================
+   SAMPLE API
+   ============================================================ */
+
+export async function getSamples(
+  experimentId = 1
+): Promise<DatasetSample[]> {
+
+  const response =
+    await fetch(
+      `${DATASET_BASE}/samples?experiment_id=${experimentId}`
+    );
+
+  const data =
+    await parseResponse<unknown>(
+      response
+    );
+
+  if (
+    Array.isArray(data)
+  ) {
+    return data as DatasetSample[];
+  }
+
+  if (
+    data &&
+    typeof data === "object"
+  ) {
+
+    const object =
+      data as Record<
+        string,
+        unknown
+      >;
+
+    if (
+      Array.isArray(
+        object.samples
+      )
+    ) {
+      return object.samples as DatasetSample[];
+    }
+
+    if (
+      Array.isArray(
+        object.value
+      )
+    ) {
+      return object.value as DatasetSample[];
+    }
+  }
+
+  return [];
+}
+
+
+export async function getSample(
+  sampleId: number,
+
+  experimentId = 1
 ): Promise<DatasetSample> {
 
   const response =
-    await request<{
-      sample:
-        DatasetSample;
-    }>(
-      `/api/dataset/samples/${id}`
+    await fetch(
+      `${DATASET_BASE}/samples/${sampleId}?experiment_id=${experimentId}`
     );
 
-
-  if (
-    !response.sample
-  ) {
-
-    throw new Error(
-      "Server did not return the requested dataset sample."
+  const data =
+    await parseResponse<unknown>(
+      response
     );
 
-  }
-
-
-  return response.sample;
-
+  return unwrapObject<DatasetSample>(
+    data,
+    "sample"
+  );
 }
 
 
-export async function createDatasetSample(
-  audio: Blob,
-  options: {
-    positionId: number | null;
+/* ============================================================
+   CREATE SAMPLE
+   ============================================================ */
 
-    targetPresence:
-      TargetPresence;
+export async function createSample(
+  audioBlob: Blob,
 
-    distanceCm: number | null;
-
-    remarks: string;
-  }
+  data: SaveSampleData
 ): Promise<DatasetSample> {
 
   const formData =
     new FormData();
 
 
+  const experimentId =
+    data.experiment_id ??
+    data.experimentId;
+
+
+  const positionId =
+    data.position_id ??
+    data.positionId ??
+    null;
+
+
+  const targetPresence =
+    data.target_presence ??
+    data.targetPresence ??
+    "cant_say";
+
+
+  const distanceCm =
+    data.distance_cm ??
+    data.distanceCm ??
+    null;
+
+
   formData.append(
     "audio",
-    audio,
-    "recording.wav"
+    audioBlob,
+    `recording_${Date.now()}.wav`
   );
 
 
   if (
-    options.positionId !== null
+    positionId !== null &&
+    positionId !== undefined
   ) {
 
     formData.append(
       "position_id",
-      String(
-        options.positionId
-      )
+      String(positionId)
     );
-
   }
 
 
   formData.append(
     "target_presence",
-    options.targetPresence
+    targetPresence
   );
 
 
   if (
-    options.distanceCm !== null
+    distanceCm !== null &&
+    distanceCm !== undefined
   ) {
 
     formData.append(
       "distance_cm",
-      String(
-        options.distanceCm
-      )
+      String(distanceCm)
     );
-
   }
 
 
   if (
-    options.remarks.trim()
+    data.remarks?.trim()
   ) {
 
     formData.append(
       "remarks",
-      options.remarks.trim()
+      data.remarks.trim()
     );
+  }
 
+
+  if (
+    experimentId !== null &&
+    experimentId !== undefined
+  ) {
+
+    formData.append(
+      "experiment_id",
+      String(experimentId)
+    );
   }
 
 
   const response =
-    await request<{
-      sample:
-        DatasetSample;
-    }>(
-      "/api/dataset/samples",
+    await fetch(
+      `${DATASET_BASE}/samples`,
       {
         method: "POST",
 
-        body: formData
+        body:
+          formData,
       }
     );
 
 
-  if (
-    !response.sample
-  ) {
-
-    throw new Error(
-      "Server did not return the created dataset sample."
+  const result =
+    await parseResponse<unknown>(
+      response
     );
 
-  }
 
-
-  return response.sample;
-
+  return unwrapObject<DatasetSample>(
+    result,
+    "sample"
+  );
 }
 
 
-export async function updateDatasetSample(
-  id: number,
-  options: {
-    positionId: number | null;
+/* ============================================================
+   UPDATE SAMPLE
+   ============================================================ */
 
-    targetPresence:
+export async function updateSample(
+  sampleId: number,
+
+  data: {
+    position_id?: number | null;
+
+    target_presence?:
       TargetPresence;
 
-    distanceCm: number | null;
+    distance_cm?: number | null;
 
-    remarks: string;
-  }
+    remarks?: string;
+
+    positionId?: number | null;
+
+    targetPresence?:
+      TargetPresence;
+
+    distanceCm?: number | null;
+  },
+
+  experimentId = 1
 ): Promise<DatasetSample> {
 
+  const positionId =
+    data.position_id ??
+    data.positionId;
+
+
+  const targetPresence =
+    data.target_presence ??
+    data.targetPresence;
+
+
+  const distanceCm =
+    data.distance_cm ??
+    data.distanceCm;
+
+
+  const payload:
+    Record<string, unknown> = {};
+
+
+  if (
+    positionId !== undefined
+  ) {
+
+    payload.position_id =
+      positionId;
+  }
+
+
+  if (
+    targetPresence !== undefined
+  ) {
+
+    payload.target_presence =
+      targetPresence;
+  }
+
+
+  if (
+    distanceCm !== undefined
+  ) {
+
+    payload.distance_cm =
+      distanceCm;
+  }
+
+
+  if (
+    data.remarks !== undefined
+  ) {
+
+    payload.remarks =
+      data.remarks;
+  }
+
+
+  /*
+   * Backend uses PATCH.
+   */
+
   const response =
-    await request<{
-      sample:
-        DatasetSample;
-    }>(
-      `/api/dataset/samples/${id}`,
+    await fetch(
+      `${DATASET_BASE}/samples/${sampleId}?experiment_id=${experimentId}`,
       {
         method: "PATCH",
 
         headers: {
           "Content-Type":
-            "application/json"
+            "application/json",
         },
 
-        body: JSON.stringify({
-
-          position_id:
-            options.positionId,
-
-          target_presence:
-            options.targetPresence,
-
-          distance_cm:
-            options.distanceCm,
-
-          remarks:
-            options.remarks.trim() ||
-            null
-
-        })
+        body:
+          JSON.stringify(payload),
       }
     );
 
 
-  if (
-    !response.sample
-  ) {
-
-    throw new Error(
-      "Server did not return the updated dataset sample."
+  const result =
+    await parseResponse<unknown>(
+      response
     );
 
-  }
 
-
-  return response.sample;
-
+  return unwrapObject<DatasetSample>(
+    result,
+    "sample"
+  );
 }
 
 
-export async function deleteDatasetSample(
-  id: number
+/* ============================================================
+   DELETE SAMPLE
+   ============================================================ */
+
+export async function deleteSample(
+  sampleId: number,
+
+  experimentId = 1
 ): Promise<void> {
 
-  await request<unknown>(
-    `/api/dataset/samples/${id}`,
-    {
-      method: "DELETE"
-    }
-  );
-
-}
-
-
-/* =======================================================
-   PREDICTION
-   ======================================================= */
-
-export async function predictDatasetSample(
-  id: number
-): Promise<PredictionResult> {
-
   const response =
-    await request<
-      PredictionResult
-    >(
-      `/api/dataset/samples/${id}/predict`,
+    await fetch(
+      `${DATASET_BASE}/samples/${sampleId}?experiment_id=${experimentId}`,
       {
-        method: "POST"
+        method: "DELETE",
       }
     );
 
 
-  if (
-    typeof response.sample_id !==
-    "number"
-  ) {
-
-    throw new Error(
-      "Server did not return a valid prediction sample ID."
-    );
-
-  }
-
-
-  if (
-    !Array.isArray(
-      response.nearest_samples
-    )
-  ) {
-
-    throw new Error(
-      "Server did not return nearest fingerprint results."
-    );
-
-  }
-
-
-  return {
-
-    sample_id:
-      response.sample_id,
-
-    predicted_position_id:
-      response.predicted_position_id ??
-      null,
-
-    predicted_position_name:
-      response.predicted_position_name ??
-      null,
-
-    confidence:
-      typeof response.confidence ===
-      "number"
-        ? response.confidence
-        : null,
-
-    ground_truth_position_id:
-      response.ground_truth_position_id ??
-      null,
-
-    ground_truth_position_name:
-      response.ground_truth_position_name ??
-      null,
-
-    evaluation:
-      response.evaluation ??
-      "not_evaluable",
-
-    nearest_samples:
-      response.nearest_samples
-
-  };
-
-}
-
-
-/* =======================================================
-   PREDICT ALL
-   ======================================================= */
-
-export async function predictAllDatasetSamples():
-  Promise<PredictAllResult> {
-
-  const response =
-    await request<
-      PredictAllResult
-    >(
-      "/api/dataset/samples/predict-all",
-      {
-        method: "POST"
-      }
-    );
-
-
-  return {
-
-    total_samples:
-      typeof response.total_samples ===
-      "number"
-        ? response.total_samples
-        : 0,
-
-    evaluated_samples:
-      typeof response.evaluated_samples ===
-      "number"
-        ? response.evaluated_samples
-        : 0,
-
-    skipped_samples:
-      typeof response.skipped_samples ===
-      "number"
-        ? response.skipped_samples
-        : 0,
-
-    correct_predictions:
-      typeof response.correct_predictions ===
-      "number"
-        ? response.correct_predictions
-        : 0,
-
-    incorrect_predictions:
-      typeof response.incorrect_predictions ===
-      "number"
-        ? response.incorrect_predictions
-        : 0,
-
-    accuracy:
-      typeof response.accuracy ===
-      "number"
-        ? response.accuracy
-        : null,
-
-    results:
-      Array.isArray(response.results)
-        ? response.results
-        : []
-
-  };
-
-}
-
-
-/* =======================================================
-   SUMMARY
-   ======================================================= */
-
-export async function getDatasetSummary():
-  Promise<DatasetSummary> {
-
-  const response =
-    await request<{
-      summary:
-        DatasetSummary;
-    }>(
-      "/api/dataset/summary"
-    );
-
-
-  if (
-    !response.summary
-  ) {
-
-    throw new Error(
-      "Server did not return the dataset summary."
-    );
-
-  }
-
-
-  return response.summary;
-
-}
-
-
-/* =======================================================
-   CSV DOWNLOADS
-   ======================================================= */
-
-export function getDatasetFeaturesCsvUrl():
-  string {
-
-  return (
-    `${API_BASE_URL}/api/dataset/export/features`
+  await parseResponse<unknown>(
+    response
   );
-
 }
 
 
-export function getDatasetPredictionsCsvUrl():
-  string {
-
-  return (
-    `${API_BASE_URL}/api/dataset/export/predictions`
-  );
-
-}
-
-
-/* =======================================================
+/* ============================================================
    AUDIO
-   ======================================================= */
+   ============================================================ */
 
-export function getDatasetSampleAudioUrl(
-  id: number
+export function getSampleAudioUrl(
+  sampleId: number,
+
+  experimentId = 1
 ): string {
 
   return (
-    `${API_BASE_URL}/api/dataset/samples/${id}/audio`
+    `${DATASET_BASE}/samples/${sampleId}/audio` +
+    `?experiment_id=${experimentId}`
+  );
+}
+
+
+/* ============================================================
+   PREDICTION
+   ============================================================ */
+
+export async function predictSample(
+  sampleId: number,
+
+  experimentId = 1
+): Promise<PredictionResult> {
+
+  const response =
+    await fetch(
+      `${DATASET_BASE}/samples/${sampleId}/predict?experiment_id=${experimentId}`,
+      {
+        method: "POST",
+      }
+    );
+
+
+  return parseResponse<PredictionResult>(
+    response
+  );
+}
+
+
+export async function predictAllSamples(
+  experimentId = 1
+): Promise<PredictAllResult> {
+
+  const response =
+    await fetch(
+      `${DATASET_BASE}/samples/predict-all?experiment_id=${experimentId}`,
+      {
+        method: "POST",
+      }
+    );
+
+
+  return parseResponse<PredictAllResult>(
+    response
+  );
+}
+
+
+/* ============================================================
+   SUMMARY
+   ============================================================ */
+
+export async function getDatasetSummary(
+  experimentId = 1
+): Promise<DatasetSummary> {
+
+  const response =
+    await fetch(
+      `${DATASET_BASE}/summary?experiment_id=${experimentId}`
+    );
+
+
+  const data =
+    await parseResponse<unknown>(
+      response
+    );
+
+
+  return unwrapObject<DatasetSummary>(
+    data,
+    "summary"
+  );
+}
+
+
+/* ============================================================
+   CSV
+   ============================================================ */
+
+export function getFeaturesCsvUrl(
+  experimentId = 1
+): string {
+
+  return (
+    `${DATASET_BASE}/export/features` +
+    `?experiment_id=${experimentId}`
+  );
+}
+
+
+export function getPredictionsCsvUrl(
+  experimentId = 1
+): string {
+
+  return (
+    `${DATASET_BASE}/export/predictions` +
+    `?experiment_id=${experimentId}`
+  );
+}
+
+
+export async function downloadFeaturesCsv(
+  experimentId = 1
+): Promise<void> {
+
+  const response =
+    await fetch(
+      getFeaturesCsvUrl(
+        experimentId
+      )
+    );
+
+
+  if (!response.ok) {
+
+    throw new Error(
+      "Failed to download feature CSV"
+    );
+  }
+
+
+  const blob =
+    await response.blob();
+
+
+  const url =
+    window.URL.createObjectURL(
+      blob
+    );
+
+
+  const link =
+    document.createElement(
+      "a"
+    );
+
+
+  link.href =
+    url;
+
+  link.download =
+    `dataset_features_EXP-${String(
+      experimentId
+    ).padStart(3, "0")}.csv`;
+
+
+  document.body.appendChild(
+    link
   );
 
+  link.click();
+
+  link.remove();
+
+  window.URL.revokeObjectURL(
+    url
+  );
 }
+
+
+export async function downloadPredictionsCsv(
+  experimentId = 1
+): Promise<void> {
+
+  const response =
+    await fetch(
+      getPredictionsCsvUrl(
+        experimentId
+      )
+    );
+
+
+  if (!response.ok) {
+
+    throw new Error(
+      "Failed to download prediction CSV"
+    );
+  }
+
+
+  const blob =
+    await response.blob();
+
+
+  const url =
+    window.URL.createObjectURL(
+      blob
+    );
+
+
+  const link =
+    document.createElement(
+      "a"
+    );
+
+
+  link.href =
+    url;
+
+  link.download =
+    `dataset_predictions_EXP-${String(
+      experimentId
+    ).padStart(3, "0")}.csv`;
+
+
+  document.body.appendChild(
+    link
+  );
+
+  link.click();
+
+  link.remove();
+
+  window.URL.revokeObjectURL(
+    url
+  );
+}
+
+
+/* ============================================================
+   BACKWARD COMPATIBILITY
+   ============================================================ */
+
+export const getDatasetPositions =
+  getPositions;
+
+export const createDatasetPosition =
+  createPosition;
+
+export const getDatasetSamples =
+  getSamples;
+
+export const getDatasetSample =
+  getSample;
+
+export const createDatasetSample =
+  createSample;
+
+export const updateDatasetSample =
+  updateSample;
+
+export const deleteDatasetSample =
+  deleteSample;
+
+export const getDatasetSampleAudioUrl =
+  getSampleAudioUrl;
+
+export const predictDatasetSample =
+  predictSample;
+
+export const predictAllDatasetSamples =
+  predictAllSamples;
+
+export const getDatasetFeaturesCsvUrl =
+  getFeaturesCsvUrl;
+
+export const getDatasetPredictionsCsvUrl =
+  getPredictionsCsvUrl;
+
+export const downloadDatasetFeaturesCsv =
+  downloadFeaturesCsv;
+
+export const downloadDatasetPredictionsCsv =
+  downloadPredictionsCsv;

@@ -2,16 +2,18 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState
+  useState,
 } from "react";
 
 import {
-  createDatasetPosition,
+  createExperiment,
+  createExperimentPosition,
   createDatasetSample,
   deleteDatasetSample,
   getDatasetSample,
   getDatasetSampleAudioUrl,
-  getDatasetPositions,
+  getExperimentPositions,
+  getExperiments,
   getDatasetSamples,
   getDatasetSummary,
   predictDatasetSample,
@@ -19,24 +21,25 @@ import {
   getDatasetFeaturesCsvUrl,
   getDatasetPredictionsCsvUrl,
   updateDatasetSample,
+  type Experiment,
   type DatasetPosition,
   type DatasetSample,
   type DatasetSummary,
   type PredictionResult,
-  type TargetPresence
+  type TargetPresence,
 } from "../lib/datasetApi";
 
 import {
   DEFAULT_CHIRP_CONFIG,
-  playChirp
+  playChirp,
 } from "../lib/chirp";
 
 import {
-  recordMicrophone
+  recordMicrophone,
 } from "../lib/recorder";
 
 import {
-  audioBufferToWav
+  audioBufferToWav,
 } from "../lib/wav";
 
 
@@ -48,18 +51,15 @@ type CollectionState =
 
 type EditState = {
   sample: DatasetSample;
-
-  positionId:
-    | number
-    | null;
-
-  targetPresence:
-    TargetPresence;
-
+  positionId: number | null;
+  targetPresence: TargetPresence;
   distanceCm: string;
-
   remarks: string;
 };
+
+
+const STORAGE_KEY =
+  "acoustic-localization-selected-experiment";
 
 
 const TARGET_OPTIONS:
@@ -67,72 +67,53 @@ const TARGET_OPTIONS:
     value: TargetPresence;
     label: string;
   }> = [
-
-  {
-    value: "yes",
-    label: "Yes"
-  },
-
-  {
-    value: "no",
-    label: "No"
-  },
-
-  {
-    value: "cant_say",
-    label: "Can't say"
-  }
-
-];
+    {
+      value: "yes",
+      label: "Yes",
+    },
+    {
+      value: "no",
+      label: "No",
+    },
+    {
+      value: "cant_say",
+      label: "Can't say",
+    },
+  ];
 
 
 const DISTANCE_OPTIONS = [
   15,
   30,
-  45
+  45,
 ];
 
 
 const FEATURE_LABELS:
   Record<string, string> = {
-
-  rms_dB:
-    "RMS level",
-
-  peak_dB:
-    "Peak level",
-
-  spectral_centroid_Hz:
-    "Spectral centroid",
-
-  spectral_bandwidth_Hz:
-    "Spectral bandwidth",
-
-  spectral_rolloff_Hz:
-    "Spectral rolloff",
-
-  spectral_flatness:
-    "Spectral flatness",
-
-  zero_crossing_rate:
-    "Zero-crossing rate",
-
-  "15_16kHz_dB":
-    "15–16 kHz energy",
-
-  "16_17kHz_dB":
-    "16–17 kHz energy",
-
-  "17_18kHz_dB":
-    "17–18 kHz energy",
-
-  "18_19kHz_dB":
-    "18–19 kHz energy",
-
-  "19_20kHz_dB":
-    "19–20 kHz energy"
-
-};
+    rms_dB: "RMS level",
+    peak_dB: "Peak level",
+    spectral_centroid_Hz:
+      "Spectral centroid",
+    spectral_bandwidth_Hz:
+      "Spectral bandwidth",
+    spectral_rolloff_Hz:
+      "Spectral rolloff",
+    spectral_flatness:
+      "Spectral flatness",
+    zero_crossing_rate:
+      "Zero-crossing rate",
+    "15_16kHz_dB":
+      "15–16 kHz energy",
+    "16_17kHz_dB":
+      "16–17 kHz energy",
+    "17_18kHz_dB":
+      "17–18 kHz energy",
+    "18_19kHz_dB":
+      "18–19 kHz energy",
+    "19_20kHz_dB":
+      "19–20 kHz energy",
+  };
 
 
 const FEATURE_ORDER = [
@@ -147,28 +128,19 @@ const FEATURE_ORDER = [
   "16_17kHz_dB",
   "17_18kHz_dB",
   "18_19kHz_dB",
-  "19_20kHz_dB"
+  "19_20kHz_dB",
 ];
 
 
 function formatTarget(
   target: TargetPresence
 ): string {
-
-  if (
-    target === "yes"
-  ) {
-
+  if (target === "yes") {
     return "Yes";
-
   }
 
-  if (
-    target === "no"
-  ) {
-
+  if (target === "no") {
     return "No";
-
   }
 
   return "Can't say";
@@ -178,56 +150,37 @@ function formatTarget(
 function formatDate(
   timestamp: string
 ): string {
-
   const date =
     new Date(timestamp);
-
 
   if (
     Number.isNaN(
       date.getTime()
     )
   ) {
-
     return timestamp;
-
   }
-
 
   return date.toLocaleString();
 }
 
 
-/*
- * Confidence and accuracy are stored as
- * values between 0 and 1.
- *
- * Example:
- * 0.7164 -> 71.6%
- * 0.825  -> 82.5%
- */
 function formatConfidence(
   confidence:
     | number
     | null
     | undefined
 ): string {
-
   if (
     typeof confidence !== "number" ||
     !Number.isFinite(confidence)
   ) {
-
     return "—";
-
   }
 
-
-  return (
-    `${(
-      confidence * 100
-    ).toFixed(1)}%`
-  );
+  return `${(
+    confidence * 100
+  ).toFixed(1)}%`;
 }
 
 
@@ -237,24 +190,13 @@ function formatEvaluation(
     | null
     | undefined
 ): string {
-
-  if (
-    evaluation === "correct"
-  ) {
-
+  if (evaluation === "correct") {
     return "Correct";
-
   }
 
-
-  if (
-    evaluation === "incorrect"
-  ) {
-
+  if (evaluation === "incorrect") {
     return "Incorrect";
-
   }
-
 
   return "Not evaluable";
 }
@@ -266,16 +208,12 @@ function formatDistance(
     | null
     | undefined
 ): string {
-
   if (
     typeof distance !== "number" ||
     !Number.isFinite(distance)
   ) {
-
     return "—";
-
   }
-
 
   return distance.toFixed(3);
 }
@@ -284,51 +222,27 @@ function formatDistance(
 function getSampleFeatures(
   sample: DatasetSample
 ): Record<string, unknown> {
-
-  const rawFeatures =
-    (
-      sample as DatasetSample & {
-        features?: unknown;
-        acoustic_features?: unknown;
-      }
-    ).features;
-
+  const raw =
+    sample.features;
 
   if (
-    rawFeatures &&
-    typeof rawFeatures === "object" &&
-    !Array.isArray(rawFeatures)
+    raw &&
+    typeof raw === "object" &&
+    !Array.isArray(raw)
   ) {
-
-    return rawFeatures as Record<
-      string,
-      unknown
-    >;
-
+    return raw;
   }
 
-
-  const acousticFeatures =
-    (
-      sample as DatasetSample & {
-        acoustic_features?: unknown;
-      }
-    ).acoustic_features;
-
+  const acoustic =
+    sample.acoustic_features;
 
   if (
-    acousticFeatures &&
-    typeof acousticFeatures === "object" &&
-    !Array.isArray(acousticFeatures)
+    acoustic &&
+    typeof acoustic === "object" &&
+    !Array.isArray(acoustic)
   ) {
-
-    return acousticFeatures as Record<
-      string,
-      unknown
-    >;
-
+    return acoustic;
   }
-
 
   return {};
 }
@@ -337,33 +251,19 @@ function getSampleFeatures(
 function formatFeatureValue(
   value: unknown
 ): string {
-
   if (
     typeof value === "number"
   ) {
-
-    if (
-      !Number.isFinite(value)
-    ) {
-
-      return "—";
-
-    }
-
-
-    return value.toFixed(4);
-
+    return Number.isFinite(value)
+      ? value.toFixed(4)
+      : "—";
   }
-
 
   if (
     typeof value === "string"
   ) {
-
     return value;
-
   }
-
 
   return "—";
 }
@@ -376,10 +276,8 @@ function getFeatureEntries(
   label: string;
   value: unknown;
 }> {
-
   const features =
     getSampleFeatures(sample);
-
 
   return FEATURE_ORDER
     .filter(
@@ -391,156 +289,175 @@ function getFeatureEntries(
     )
     .map(
       key => ({
-
         key,
-
         label:
-          FEATURE_LABELS[key] ??
-          key,
-
+          FEATURE_LABELS[key] ?? key,
         value:
-          features[key]
-
+          features[key],
       })
     );
-
 }
 
 
 export default function CollectData() {
 
+  /* ==========================================================
+     EXPERIMENT STATE
+     ========================================================== */
+
+  const [
+    experiments,
+    setExperiments,
+  ] = useState<Experiment[]>([]);
+
+  const [
+    selectedExperimentId,
+    setSelectedExperimentIdState,
+  ] = useState<number | null>(
+    null
+  );
+
+  const [
+    experimentsLoading,
+    setExperimentsLoading,
+  ] = useState(true);
+
+  const [
+    newExperimentName,
+    setNewExperimentName,
+  ] = useState("");
+
+  const [
+    newExperimentDescription,
+    setNewExperimentDescription,
+  ] = useState("");
+
+  const [
+    creatingExperiment,
+    setCreatingExperiment,
+  ] = useState(false);
+
+
+  /* ==========================================================
+     DATASET STATE
+     ========================================================== */
+
   const [
     positions,
-    setPositions
-  ] = useState<
-    DatasetPosition[]
-  >([]);
-
+    setPositions,
+  ] = useState<DatasetPosition[]>([]);
 
   const [
     samples,
-    setSamples
-  ] = useState<
-    DatasetSample[]
-  >([]);
-
+    setSamples,
+  ] = useState<DatasetSample[]>([]);
 
   const [
     summary,
-    setSummary
-  ] = useState<
-    DatasetSummary | null
-  >(null);
-
+    setSummary,
+  ] = useState<DatasetSummary | null>(
+    null
+  );
 
   const [
     selectedPositionId,
-    setSelectedPositionId
-  ] = useState<
-    number | null
-  >(null);
+    setSelectedPositionId,
+  ] = useState<number | null>(
+    null
+  );
 
+
+  /* ==========================================================
+     FORM STATE
+     ========================================================== */
 
   const [
     targetPresence,
-    setTargetPresence
+    setTargetPresence,
   ] = useState<TargetPresence>(
     "yes"
   );
 
-
   const [
     distanceCm,
-    setDistanceCm
+    setDistanceCm,
   ] = useState("15");
-
 
   const [
     remarks,
-    setRemarks
+    setRemarks,
   ] = useState("");
-
 
   const [
     newPositionName,
-    setNewPositionName
+    setNewPositionName,
   ] = useState("");
-
 
   const [
     collectionState,
-    setCollectionState
+    setCollectionState,
   ] = useState<CollectionState>(
     "idle"
   );
 
 
+  /* ==========================================================
+     UI STATE
+     ========================================================== */
+
   const [
     message,
-    setMessage
-  ] = useState<
-    string | null
-  >(null);
-
+    setMessage,
+  ] = useState<string | null>(
+    null
+  );
 
   const [
     error,
-    setError
-  ] = useState<
-    string | null
-  >(null);
-
+    setError,
+  ] = useState<string | null>(
+    null
+  );
 
   const [
     editing,
-    setEditing
-  ] = useState<
-    EditState | null
-  >(null);
-
+    setEditing,
+  ] = useState<EditState | null>(
+    null
+  );
 
   const [
     prediction,
-    setPrediction
-  ] = useState<
-    PredictionResult | null
-  >(null);
-
+    setPrediction,
+  ] = useState<PredictionResult | null>(
+    null
+  );
 
   const [
     predictionSampleId,
-    setPredictionSampleId
-  ] = useState<
-    number | null
-  >(null);
+    setPredictionSampleId,
+  ] = useState<number | null>(
+    null
+  );
 
-
-  /*
-   * Tracks the bulk prediction operation.
-   * While this is true, another prediction
-   * operation cannot be started.
-   */
   const [
     predictingAll,
-    setPredictingAll
+    setPredictingAll,
   ] = useState(false);
-
 
   const [
     featureSampleId,
-    setFeatureSampleId
-  ] = useState<
-    number | null
-  >(null);
-
+    setFeatureSampleId,
+  ] = useState<number | null>(
+    null
+  );
 
   const [
     audioPlayingId,
-    setAudioPlayingId
-  ] = useState<
-    number | null
-  >(null);
-
+    setAudioPlayingId,
+  ] = useState<number | null>(
+    null
+  );
 
   const audioRef =
     useRef<HTMLAudioElement | null>(
@@ -548,27 +465,151 @@ export default function CollectData() {
     );
 
 
-  async function loadDataset() {
+  /* ==========================================================
+     PERSISTENT EXPERIMENT SELECTION
+     ========================================================== */
 
+  function setSelectedExperimentId(
+    value:
+      | number
+      | null
+      | ((current: number | null) => number | null)
+  ) {
+    setSelectedExperimentIdState(
+      current => {
+        const next =
+          typeof value === "function"
+            ? value(current)
+            : value;
+
+        if (next === null) {
+          localStorage.removeItem(
+            STORAGE_KEY
+          );
+        } else {
+          localStorage.setItem(
+            STORAGE_KEY,
+            String(next)
+          );
+        }
+
+        return next;
+      }
+    );
+  }
+
+
+  const selectedExperiment =
+    useMemo(
+      () =>
+        experiments.find(
+          experiment =>
+            experiment.id ===
+            selectedExperimentId
+        ) ?? null,
+      [
+        experiments,
+        selectedExperimentId,
+      ]
+    );
+
+
+  /* ==========================================================
+     LOAD EXPERIMENTS
+     ========================================================== */
+
+  async function loadExperiments() {
     try {
-
+      setExperimentsLoading(true);
       setError(null);
 
+      const loaded =
+        await getExperiments();
+
+      setExperiments(
+        loaded
+      );
+
+      if (loaded.length === 0) {
+        setSelectedExperimentId(null);
+        return;
+      }
+
+      const storedValue =
+        localStorage.getItem(
+          STORAGE_KEY
+        );
+
+      const storedId =
+        storedValue
+          ? Number(storedValue)
+          : null;
+
+      const storedExists =
+        typeof storedId === "number" &&
+        Number.isInteger(storedId) &&
+        loaded.some(
+          experiment =>
+            experiment.id ===
+            storedId
+        );
+
+      setSelectedExperimentId(
+        storedExists
+          ? storedId
+          : loaded[0].id
+      );
+
+    } catch (err) {
+      console.error(
+        "Unable to load experiments:",
+        err
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to load experiments."
+      );
+    } finally {
+      setExperimentsLoading(false);
+    }
+  }
+
+
+  useEffect(() => {
+    void loadExperiments();
+  }, []);
+
+
+  /* ==========================================================
+     LOAD SELECTED EXPERIMENT
+     ========================================================== */
+
+  async function loadDataset(
+    experimentId: number
+  ) {
+    try {
+      setError(null);
+      setPrediction(null);
+      setEditing(null);
+      setFeatureSampleId(null);
 
       const [
         loadedPositions,
         loadedSamples,
-        loadedSummary
+        loadedSummary,
       ] = await Promise.all([
-
-        getDatasetPositions(),
-
-        getDatasetSamples(),
-
-        getDatasetSummary()
-
+        getExperimentPositions(
+          experimentId
+        ),
+        getDatasetSamples(
+          experimentId
+        ),
+        getDatasetSummary(
+          experimentId
+        ),
       ]);
-
 
       setPositions(
         loadedPositions
@@ -582,68 +623,94 @@ export default function CollectData() {
         loadedSummary
       );
 
+      setSelectedPositionId(
+        current => {
+          if (
+            current !== null &&
+            loadedPositions.some(
+              position =>
+                position.id === current
+            )
+          ) {
+            return current;
+          }
 
-      if (
-        selectedPositionId === null &&
-        loadedPositions.length > 0
-      ) {
-
-        setSelectedPositionId(
-          loadedPositions[0].id
-        );
-
-      }
+          return (
+            loadedPositions[0]?.id ??
+            null
+          );
+        }
+      );
 
     } catch (err) {
+      console.error(
+        "Unable to load experiment dataset:",
+        err
+      );
+
+      setPositions([]);
+      setSamples([]);
+      setSummary(null);
+      setSelectedPositionId(null);
 
       setError(
         err instanceof Error
           ? err.message
-          : "Unable to load dataset."
+          : "Unable to load experiment dataset."
       );
-
     }
   }
 
 
   useEffect(() => {
+    if (
+      selectedExperimentId === null
+    ) {
+      setPositions([]);
+      setSamples([]);
+      setSummary(null);
+      return;
+    }
 
-    void loadDataset();
+    void loadDataset(
+      selectedExperimentId
+    );
+  }, [
+    selectedExperimentId,
+  ]);
 
-  }, []);
 
+  /* ==========================================================
+     SELECTED POSITION
+     ========================================================== */
 
   const selectedPosition =
     useMemo(
-
       () =>
         positions.find(
           position =>
             position.id ===
             selectedPositionId
         ) ?? null,
-
       [
         positions,
-        selectedPositionId
+        selectedPositionId,
       ]
-
     );
 
 
+  /* ==========================================================
+     FEATURE SAMPLE
+     ========================================================== */
+
   const featureSample =
     useMemo(
-
       () => {
-
         if (
           featureSampleId === null
         ) {
-
           return null;
-
         }
-
 
         return (
           samples.find(
@@ -652,14 +719,11 @@ export default function CollectData() {
               featureSampleId
           ) ?? null
         );
-
       },
-
       [
         samples,
-        featureSampleId
+        featureSampleId,
       ]
-
     );
 
 
@@ -671,201 +735,358 @@ export default function CollectData() {
       : [];
 
 
+  /* ==========================================================
+     CREATE EXPERIMENT
+     ========================================================== */
+
+  async function handleCreateExperiment() {
+    const name =
+      newExperimentName.trim();
+
+    if (!name) {
+      setError(
+        "Enter an experiment name first."
+      );
+      return;
+    }
+
+    if (creatingExperiment) {
+      return;
+    }
+
+    try {
+      setCreatingExperiment(true);
+      setError(null);
+      setMessage(null);
+
+      const created =
+        await createExperiment({
+          name,
+          description:
+            newExperimentDescription.trim() ||
+            undefined,
+        });
+
+      setExperiments(
+        current => [
+          ...current,
+          created,
+        ]
+      );
+
+      setSelectedExperimentId(
+        created.id
+      );
+
+      setNewExperimentName("");
+      setNewExperimentDescription("");
+
+      setMessage(
+        `${created.name} was created successfully and is now active.`
+      );
+
+    } catch (err) {
+      console.error(
+        "Unable to create experiment:",
+        err
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to create experiment."
+      );
+    } finally {
+      setCreatingExperiment(false);
+    }
+  }
+
+
+  /* ==========================================================
+     CREATE POSITION
+     ========================================================== */
+
   async function handleCreatePosition() {
+    if (
+      selectedExperimentId === null
+    ) {
+      setError(
+        "Select an experiment first."
+      );
+      return;
+    }
 
     const name =
       newPositionName.trim();
 
-
     if (!name) {
-
       setError(
         "Enter a position name first."
       );
-
       return;
-
     }
 
-
     try {
-
       setError(null);
-
       setMessage(null);
 
-
       const created =
-        await createDatasetPosition(
-          name
+        await createExperimentPosition(
+          selectedExperimentId,
+          {
+            name,
+          }
         );
-
 
       setPositions(
         current => [
           ...current,
-          created
+          created,
         ]
       );
-
 
       setSelectedPositionId(
         created.id
       );
 
-
       setNewPositionName("");
 
-
       setMessage(
-        `${created.name} was added as a dataset position.`
+        `${created.name} was added to ${
+          selectedExperiment?.name ??
+          "the experiment"
+        }.`
       );
 
     } catch (err) {
+      console.error(
+        "Unable to create position:",
+        err
+      );
 
       setError(
         err instanceof Error
           ? err.message
           : "Unable to create position."
       );
-
     }
   }
 
 
-  async function handleCollectSample() {
+  /* ==========================================================
+     AUTOMATIC SINGLE PREDICTION
+     ========================================================== */
 
+  async function automaticallyPredictSample(
+    sample: DatasetSample,
+    experimentId: number
+  ): Promise<{
+    prediction: PredictionResult | null;
+    sample: DatasetSample;
+  }> {
+
+    /*
+     * The backend requires at least one reference
+     * sample other than the sample being predicted.
+     *
+     * Therefore the first sample of an experiment
+     * cannot be predicted yet.
+     */
+    const referenceCount =
+      samples.filter(
+        item =>
+          item.id !== sample.id &&
+          item.position_id !== null &&
+          item.features !== null &&
+          item.features !== undefined
+      ).length;
+
+    if (referenceCount === 0) {
+      return {
+        prediction: null,
+        sample,
+      };
+    }
+
+    try {
+      setPredictionSampleId(
+        sample.id
+      );
+
+      const result =
+        await predictDatasetSample(
+          sample.id,
+          experimentId
+        );
+
+      setPrediction(
+        result
+      );
+
+      const updated =
+        await getDatasetSample(
+          sample.id,
+          experimentId
+        );
+
+      setSamples(
+        current =>
+          current.map(
+            item =>
+              item.id === updated.id
+                ? updated
+                : item
+          )
+      );
+
+      return {
+        prediction: result,
+        sample: updated,
+      };
+
+    } catch (err) {
+      /*
+       * Prediction failure must not make the already
+       * successfully saved recording look like it failed.
+       */
+      console.warn(
+        "Automatic prediction unavailable:",
+        err
+      );
+
+      return {
+        prediction: null,
+        sample,
+      };
+
+    } finally {
+      setPredictionSampleId(
+        null
+      );
+    }
+  }
+
+
+  /* ==========================================================
+     COLLECT SAMPLE
+     ========================================================== */
+
+  async function handleCollectSample() {
     if (
       collectionState !== "idle"
     ) {
-
       return;
-
     }
 
+    if (predictingAll) {
+      return;
+    }
 
-    /*
-     * Do not start a recording while bulk
-     * prediction is modifying the dataset.
-     */
     if (
-      predictingAll
+      selectedExperimentId === null
     ) {
-
+      setError(
+        "Select an experiment before recording data."
+      );
       return;
-
     }
-
 
     if (
       positions.length === 0
     ) {
-
       setError(
         "Create at least one position before collecting data."
       );
-
       return;
-
     }
-
 
     if (
       targetPresence === "yes"
     ) {
-
       if (
         selectedPositionId === null
       ) {
-
         setError(
           "Select the position where the target is located."
         );
-
         return;
-
       }
 
-
       if (!distanceCm) {
-
         setError(
           "Select a distance for a present target."
         );
-
         return;
-
       }
-
     }
 
+    const experimentId =
+      selectedExperimentId;
 
     try {
-
       setError(null);
-
       setMessage(null);
-
       setPrediction(null);
-
       setFeatureSampleId(null);
-
 
       setCollectionState(
         "recording"
       );
 
-
+      /*
+       * Start microphone recording before
+       * playing the chirp.
+       */
       const recordingPromise =
         recordMicrophone(1300);
 
-
       const audioContext =
         new AudioContext({
-          sampleRate: 48000
+          sampleRate: 48000,
         });
-
 
       await new Promise<void>(
         resolve => {
-
           window.setTimeout(
             resolve,
             100
           );
-
         }
       );
-
 
       await playChirp(
         audioContext,
         DEFAULT_CHIRP_CONFIG
       );
 
-
       await audioContext.close();
-
 
       const recording =
         await recordingPromise;
-
 
       const wavBlob =
         audioBufferToWav(
           recording.audioBuffer
         );
 
-
       setCollectionState(
         "saving"
       );
 
-
+      /*
+       * IMPORTANT:
+       * The selected experiment ID is captured in the
+       * local variable before asynchronous work begins.
+       * This prevents a later UI change from causing the
+       * sample to be written to another experiment.
+       */
       const sample =
         await createDatasetSample(
           wavBlob,
           {
+            experiment_id:
+              experimentId,
+
             positionId:
               targetPresence === "yes"
                 ? selectedPositionId
@@ -878,126 +1099,188 @@ export default function CollectData() {
                 ? Number(distanceCm)
                 : null,
 
-            remarks
+            remarks,
           }
         );
 
+      /*
+       * Immediately refresh the authoritative sample
+       * from SQLite.
+       */
+      const persistedSample =
+        await getDatasetSample(
+          sample.id,
+          experimentId
+        );
 
       setSamples(
         current => [
-          sample,
-          ...current
+          persistedSample,
+          ...current.filter(
+            item =>
+              item.id !==
+              persistedSample.id
+          ),
         ]
       );
 
-
       setFeatureSampleId(
-        sample.id
+        persistedSample.id
       );
-
 
       setRemarks("");
 
-
-      setCollectionState(
-        "idle"
-      );
-
-
+      /*
+       * Refresh summary before prediction.
+       */
       const updatedSummary =
-        await getDatasetSummary();
-
+        await getDatasetSummary(
+          experimentId
+        );
 
       setSummary(
         updatedSummary
       );
 
-
-      setMessage(
-        `${sample.sample_code} saved successfully. Acoustic features extracted.`
-      );
-
-    } catch (err) {
-
-      console.error(err);
-
-
       setCollectionState(
         "idle"
       );
 
+      /*
+       * AUTOMATIC PREDICTION
+       *
+       * First sample:
+       *   saved, but no reference data yet.
+       *
+       * Later samples:
+       *   prediction runs automatically.
+       */
+      const predictionResult =
+        await automaticallyPredictSample(
+          persistedSample,
+          experimentId
+        );
+
+      /*
+       * Reload the experiment once more so the UI
+       * exactly matches persisted backend state.
+       */
+      const [
+        finalSamples,
+        finalSummary,
+      ] = await Promise.all([
+        getDatasetSamples(
+          experimentId
+        ),
+        getDatasetSummary(
+          experimentId
+        ),
+      ]);
+
+      setSamples(
+        finalSamples
+      );
+
+      setSummary(
+        finalSummary
+      );
+
+      if (
+        predictionResult.prediction
+      ) {
+        const predictedName =
+          predictionResult
+            .prediction
+            .predicted_position_name ??
+          "Unknown";
+
+        setMessage(
+          `${persistedSample.sample_code} saved and predicted as ${predictedName} with ${formatConfidence(
+            predictionResult.prediction.confidence
+          )} confidence.`
+        );
+      } else {
+        setMessage(
+          `${persistedSample.sample_code} saved successfully in ${
+            selectedExperiment?.name ??
+            "the experiment"
+          }. Acoustic features extracted. Prediction will become available once this experiment has reference samples.`
+        );
+      }
+
+    } catch (err) {
+      console.error(
+        "Recording failed:",
+        err
+      );
+
+      setCollectionState(
+        "idle"
+      );
 
       setError(
         err instanceof Error
           ? err.message
           : "Unable to record and save the sample."
       );
-
     }
   }
 
 
-  /*
-   * Predict a single sample and immediately
-   * update both the prediction panel and table.
-   */
+  /* ==========================================================
+     SINGLE MANUAL PREDICTION
+     ========================================================== */
+
   async function handlePredict(
     sample: DatasetSample
   ) {
+    if (
+      selectedExperimentId === null
+    ) {
+      setError(
+        "Select an experiment first."
+      );
+      return;
+    }
 
     if (
       predictionSampleId !== null ||
       predictingAll
     ) {
-
       return;
-
     }
 
-
     try {
-
       setError(null);
-
       setMessage(null);
-
       setPrediction(null);
-
 
       setPredictionSampleId(
         sample.id
       );
 
-
-      /*
-       * The API correctly reads the backend's
-       * top-level prediction response.
-       */
       const result =
         await predictDatasetSample(
-          sample.id
+          sample.id,
+          selectedExperimentId
         );
 
-
-      /*
-       * Display the prediction immediately.
-       */
       setPrediction(
         result
       );
 
-
-      /*
-       * Fetch the actual persisted sample.
-       * This keeps the table synchronized with
-       * dataset.db and avoids manually constructing
-       * a DatasetSample object.
-       */
-      const updatedSample =
-        await getDatasetSample(
-          sample.id
-        );
-
+      const [
+        updatedSample,
+        updatedSummary,
+      ] = await Promise.all([
+        getDatasetSample(
+          sample.id,
+          selectedExperimentId
+        ),
+        getDatasetSummary(
+          selectedExperimentId
+        ),
+      ]);
 
       setSamples(
         current =>
@@ -1008,113 +1291,85 @@ export default function CollectData() {
                 ? updatedSample
                 : item
           )
-        );
-
-
-      /*
-       * Refresh summary statistics.
-       */
-      const updatedSummary =
-        await getDatasetSummary();
-
+      );
 
       setSummary(
         updatedSummary
       );
 
-
     } catch (err) {
-
       console.error(
         "Dataset prediction failed:",
         err
       );
 
-
       setPrediction(null);
-
 
       setError(
         err instanceof Error
           ? err.message
           : "Unable to predict the sample."
       );
-
-
     } finally {
-
       setPredictionSampleId(
         null
       );
-
     }
   }
 
 
-  /*
-   * Predict every labeled sample using the
-   * backend's leave-one-out KNN evaluation.
-   *
-   * The backend persists the resulting prediction
-   * for every sample, so after completion we reload
-   * the samples and summary from dataset.db.
-   */
+  /* ==========================================================
+     PREDICT ALL
+     ========================================================== */
+
   async function handlePredictAll() {
+    if (
+      selectedExperimentId === null
+    ) {
+      setError(
+        "Select an experiment first."
+      );
+      return;
+    }
 
     if (
       predictingAll ||
       predictionSampleId !== null
     ) {
-
       return;
-
     }
-
 
     if (
       samples.length === 0
     ) {
-
       setError(
         "There are no recordings to predict."
       );
-
       return;
-
     }
 
-
     try {
-
       setError(null);
-
       setMessage(null);
-
       setPrediction(null);
-
       setPredictingAll(true);
 
-
       const result =
-        await predictAllDatasetSamples();
+        await predictAllDatasetSamples(
+          selectedExperimentId
+        );
 
-
-      /*
-       * Reload the complete dataset so every
-       * prediction/evaluation shown in the UI
-       * comes directly from dataset.db.
-       */
       const [
         updatedSamples,
-        updatedSummary
+        updatedSummary,
       ] = await Promise.all([
-
-        getDatasetSamples(),
-
-        getDatasetSummary()
-
+        getDatasetSamples(
+          selectedExperimentId
+        ),
+        getDatasetSummary(
+          selectedExperimentId
+        ),
       ]);
-
 
       setSamples(
         updatedSamples
@@ -1124,230 +1379,200 @@ export default function CollectData() {
         updatedSummary
       );
 
-
       const accuracyText =
-        result.accuracy === null
+        result.accuracy === null ||
+        result.accuracy === undefined
           ? "—"
           : `${(
               result.accuracy * 100
             ).toFixed(2)}%`;
-
 
       setMessage(
         `Prediction complete: ${result.evaluated_samples} evaluated · ${result.correct_predictions} correct · ${result.incorrect_predictions} incorrect · ${accuracyText} accuracy.`
       );
 
     } catch (err) {
-
       console.error(
         "Bulk dataset prediction failed:",
         err
       );
-
 
       setError(
         err instanceof Error
           ? err.message
           : "Unable to predict all recordings."
       );
-
     } finally {
-
       setPredictingAll(
         false
       );
-
     }
-
   }
 
+
+  /* ==========================================================
+     DELETE
+     ========================================================== */
 
   async function handleDelete(
     sample: DatasetSample
   ) {
-
     if (
+      selectedExperimentId === null ||
       predictingAll
     ) {
-
       return;
-
     }
-
 
     const confirmed =
       window.confirm(
-        `Delete ${sample.sample_code}? This will permanently remove the sample and its WAV recording.`
+        `Delete ${sample.sample_code}? This will permanently remove the sample and its WAV recording from this experiment.`
       );
-
 
     if (!confirmed) {
-
       return;
-
     }
 
-
     try {
-
       setError(null);
-
       setMessage(null);
 
-
       await deleteDatasetSample(
-        sample.id
+        sample.id,
+        selectedExperimentId
       );
-
 
       setSamples(
         current =>
           current.filter(
             item =>
-              item.id !== sample.id
+              item.id !==
+              sample.id
           )
       );
-
 
       if (
         prediction?.sample_id ===
         sample.id
       ) {
-
         setPrediction(null);
-
       }
-
 
       if (
         featureSampleId ===
         sample.id
       ) {
-
         setFeatureSampleId(null);
-
       }
 
-
       const updatedSummary =
-        await getDatasetSummary();
-
+        await getDatasetSummary(
+          selectedExperimentId
+        );
 
       setSummary(
         updatedSummary
       );
-
 
       setMessage(
         `${sample.sample_code} was deleted.`
       );
 
     } catch (err) {
-
       setError(
         err instanceof Error
           ? err.message
           : "Unable to delete sample."
       );
-
     }
   }
 
 
+  /* ==========================================================
+     EDIT
+     ========================================================== */
+
   function beginEdit(
     sample: DatasetSample
   ) {
-
-    if (
-      predictingAll
-    ) {
-
+    if (predictingAll) {
       return;
-
     }
 
-
     setEditing({
-
       sample,
 
       positionId:
-        sample.position_id,
+        typeof sample.position_id ===
+        "number"
+          ? sample.position_id
+          : null,
 
       targetPresence:
         sample.target_presence,
 
       distanceCm:
-        sample.distance_cm === null
+        sample.distance_cm === null ||
+        sample.distance_cm === undefined
           ? ""
           : String(
               sample.distance_cm
             ),
 
       remarks:
-        sample.remarks ?? ""
-
+        sample.remarks ?? "",
     });
 
-
     setError(null);
-
     setMessage(null);
   }
 
 
   async function handleSaveEdit() {
-
     if (!editing) {
-
       return;
-
     }
 
+    if (
+      selectedExperimentId === null
+    ) {
+      setError(
+        "Select an experiment first."
+      );
+      return;
+    }
 
     if (
       predictingAll
     ) {
-
       return;
-
     }
 
-
     if (
-      editing.targetPresence === "yes" &&
+      editing.targetPresence ===
+        "yes" &&
       editing.positionId === null
     ) {
-
       setError(
         "Select a position for a present target."
       );
-
       return;
-
     }
 
-
     if (
-      editing.targetPresence === "yes" &&
+      editing.targetPresence ===
+        "yes" &&
       !editing.distanceCm
     ) {
-
       setError(
         "Select a distance for a present target."
       );
-
       return;
-
     }
 
-
     try {
-
       setError(null);
-
       setMessage(null);
-
 
       const updated =
         await updateDatasetSample(
@@ -1372,10 +1597,10 @@ export default function CollectData() {
                 : null,
 
             remarks:
-              editing.remarks
-          }
+              editing.remarks,
+          },
+          selectedExperimentId
         );
-
 
       setSamples(
         current =>
@@ -1388,170 +1613,135 @@ export default function CollectData() {
           )
       );
 
-
       if (
         prediction?.sample_id ===
         updated.id
       ) {
-
         setPrediction(null);
-
       }
 
-
-      if (
-        featureSampleId ===
+      setFeatureSampleId(
         updated.id
-      ) {
-
-        setFeatureSampleId(
-          updated.id
-        );
-
-      }
-
+      );
 
       setEditing(null);
 
-
       const updatedSummary =
-        await getDatasetSummary();
-
+        await getDatasetSummary(
+          selectedExperimentId
+        );
 
       setSummary(
         updatedSummary
       );
-
 
       setMessage(
         `${updated.sample_code} was updated.`
       );
 
     } catch (err) {
-
       setError(
         err instanceof Error
           ? err.message
           : "Unable to update sample."
       );
-
     }
   }
 
 
+  /* ==========================================================
+     PLAY AUDIO
+     ========================================================== */
+
   function playSample(
     sample: DatasetSample
   ) {
+    if (
+      selectedExperimentId === null
+    ) {
+      return;
+    }
 
     if (
       audioRef.current
     ) {
-
       audioRef.current.pause();
-
       audioRef.current = null;
-
     }
-
 
     const audio =
       new Audio(
         getDatasetSampleAudioUrl(
-          sample.id
+          sample.id,
+          selectedExperimentId
         )
       );
 
-
     audioRef.current =
       audio;
-
 
     setAudioPlayingId(
       sample.id
     );
 
-
     audio.onended = () => {
-
-      setAudioPlayingId(
-        null
-      );
-
-      audioRef.current =
-        null;
-
+      setAudioPlayingId(null);
+      audioRef.current = null;
     };
 
-
     audio.onerror = () => {
-
-      setAudioPlayingId(
-        null
-      );
-
-      audioRef.current =
-        null;
-
+      setAudioPlayingId(null);
+      audioRef.current = null;
       setError(
         "Unable to play this recording."
       );
-
     };
 
-
-    void audio
-      .play()
+    void audio.play()
       .catch(() => {
-
-        setAudioPlayingId(
-          null
-        );
-
-        audioRef.current =
-          null;
-
+        setAudioPlayingId(null);
+        audioRef.current = null;
         setError(
           "Unable to play this recording."
         );
-
       });
   }
 
 
+  /* ==========================================================
+     TARGET CHANGE
+     ========================================================== */
+
   function handleTargetChange(
     value: TargetPresence
   ) {
-
     setTargetPresence(
       value
     );
 
-
     if (
       value !== "yes"
     ) {
-
       setDistanceCm("");
-
     } else if (
       !distanceCm
     ) {
-
       setDistanceCm("15");
-
     }
   }
 
+
+  /* ==========================================================
+     DERIVED VALUES
+     ========================================================== */
 
   const isRecording =
     collectionState ===
     "recording";
 
-
   const isSaving =
     collectionState ===
     "saving";
-
 
   const nearestSamples =
     prediction &&
@@ -1561,14 +1751,12 @@ export default function CollectData() {
       ? prediction.nearest_samples
       : [];
 
-
   const positionDistribution =
     summary
       ? Object.entries(
           summary.positions ?? {}
         )
       : [];
-
 
   const targetDistribution =
     summary
@@ -1582,7 +1770,6 @@ export default function CollectData() {
         >
       : [];
 
-
   const distanceDistribution =
     summary
       ? Object.entries(
@@ -1591,13 +1778,20 @@ export default function CollectData() {
       : [];
 
 
+  /* ==========================================================
+     RENDER
+     ========================================================== */
+
   return (
     <main className="collect-page">
+
+      {/* ======================================================
+          HERO
+          ====================================================== */}
 
       <section className="collect-hero">
 
         <div>
-
           <p className="eyebrow">
             Experimental dataset
           </p>
@@ -1607,16 +1801,14 @@ export default function CollectData() {
           </h1>
 
           <p className="collect-description">
-            Build the labeled acoustic
-            fingerprint dataset used to
-            evaluate position prediction.
+            Organize acoustic recordings into
+            independent experiments and build
+            labeled datasets for localization
+            research.
           </p>
-
         </div>
 
-
         <div className="collect-hero-meta">
-
           <span>
             {summary?.total_samples ?? 0}
             {" "}
@@ -1628,16 +1820,17 @@ export default function CollectData() {
             {" "}
             labeled
           </span>
-
         </div>
 
       </section>
 
 
+      {/* ======================================================
+          ALERTS
+          ====================================================== */}
+
       {error && (
-
         <div className="dataset-alert dataset-alert-error">
-
           <span>
             {error}
           </span>
@@ -1650,16 +1843,11 @@ export default function CollectData() {
           >
             Dismiss
           </button>
-
         </div>
-
       )}
 
-
       {message && (
-
         <div className="dataset-alert dataset-alert-success">
-
           <span>
             {message}
           </span>
@@ -1672,11 +1860,196 @@ export default function CollectData() {
           >
             Dismiss
           </button>
+        </div>
+      )}
+
+
+      {/* ======================================================
+          EXPERIMENT MANAGEMENT
+          ====================================================== */}
+
+      <section className="dataset-card">
+
+        <div className="dataset-card-header">
+          <div>
+            <p className="section-kicker">
+              Experiment
+            </p>
+
+            <h2>
+              Research Session
+            </h2>
+
+            <p className="field-help">
+              Samples, positions, predictions and
+              recordings are isolated by experiment.
+              The selected experiment is persisted
+              across browser refreshes.
+            </p>
+          </div>
+        </div>
+
+
+        <div className="form-section">
+
+          <label className="field-label">
+            Active experiment
+          </label>
+
+          <select
+            value={
+              selectedExperimentId ?? ""
+            }
+            onChange={event => {
+              const value =
+                event.target.value;
+
+              setSelectedExperimentId(
+                value
+                  ? Number(value)
+                  : null
+              );
+            }}
+            disabled={
+              experimentsLoading ||
+              creatingExperiment ||
+              isRecording ||
+              isSaving ||
+              predictingAll
+            }
+          >
+
+            <option value="">
+              Select experiment
+            </option>
+
+            {experiments.map(
+              experiment => (
+                <option
+                  key={
+                    experiment.id
+                  }
+                  value={
+                    experiment.id
+                  }
+                >
+                  {experiment.name}
+                </option>
+              )
+            )}
+
+          </select>
+
+
+          {selectedExperiment && (
+            <p className="field-help">
+              <strong>
+                {
+                  selectedExperiment.name
+                }
+              </strong>
+              {" · "}
+              {
+                selectedExperiment.description ??
+                "No description"
+              }
+              {" · "}
+              EXP-
+              {String(
+                selectedExperiment.id
+              ).padStart(3, "0")}
+            </p>
+          )}
 
         </div>
 
-      )}
 
+        <div className="form-section">
+
+          <label className="field-label">
+            Create new experiment
+          </label>
+
+          <div className="position-create-row">
+
+            <input
+              type="text"
+              value={
+                newExperimentName
+              }
+              onChange={event =>
+                setNewExperimentName(
+                  event.target.value
+                )
+              }
+              placeholder="Experiment name"
+              disabled={
+                creatingExperiment ||
+                isRecording ||
+                isSaving ||
+                predictingAll
+              }
+              onKeyDown={event => {
+                if (
+                  event.key ===
+                  "Enter"
+                ) {
+                  event.preventDefault();
+                  void handleCreateExperiment();
+                }
+              }}
+            />
+
+            <input
+              type="text"
+              value={
+                newExperimentDescription
+              }
+              onChange={event =>
+                setNewExperimentDescription(
+                  event.target.value
+                )
+              }
+              placeholder="Description (optional)"
+              disabled={
+                creatingExperiment ||
+                isRecording ||
+                isSaving ||
+                predictingAll
+              }
+            />
+
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() =>
+                void handleCreateExperiment()
+              }
+              disabled={
+                creatingExperiment ||
+                isRecording ||
+                isSaving ||
+                predictingAll ||
+                !newExperimentName.trim()
+              }
+            >
+              {
+                creatingExperiment
+                  ? "Creating…"
+                  : "Create"
+              }
+            </button>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      {/* ======================================================
+          COLLECTION + SUMMARY
+          ====================================================== */}
 
       <section className="collect-grid">
 
@@ -1685,7 +2058,6 @@ export default function CollectData() {
           <div className="dataset-card-header">
 
             <div>
-
               <p className="section-kicker">
                 01
               </p>
@@ -1693,18 +2065,14 @@ export default function CollectData() {
               <h2>
                 Record sample
               </h2>
-
             </div>
 
-
             <span className="recording-status">
-
               {isRecording
                 ? "Recording"
                 : isSaving
                   ? "Saving"
                   : "Ready"}
-
             </span>
 
           </div>
@@ -1716,24 +2084,23 @@ export default function CollectData() {
               Position
             </label>
 
-
             <div className="position-create-row">
 
               <select
                 value={
                   selectedPositionId ?? ""
                 }
-                onChange={
-                  event =>
-                    setSelectedPositionId(
-                      event.target.value
-                        ? Number(
-                            event.target.value
-                          )
-                        : null
-                    )
+                onChange={event =>
+                  setSelectedPositionId(
+                    event.target.value
+                      ? Number(
+                          event.target.value
+                        )
+                      : null
+                  )
                 }
                 disabled={
+                  selectedExperimentId === null ||
                   isRecording ||
                   isSaving ||
                   predictingAll
@@ -1744,10 +2111,8 @@ export default function CollectData() {
                   Select position
                 </option>
 
-
                 {positions.map(
                   position => (
-
                     <option
                       key={
                         position.id
@@ -1760,7 +2125,6 @@ export default function CollectData() {
                         position.name
                       }
                     </option>
-
                   )
                 )}
 
@@ -1772,36 +2136,28 @@ export default function CollectData() {
                 value={
                   newPositionName
                 }
-                onChange={
-                  event =>
-                    setNewPositionName(
-                      event.target.value
-                    )
+                onChange={event =>
+                  setNewPositionName(
+                    event.target.value
+                  )
                 }
                 placeholder="New position"
                 disabled={
+                  selectedExperimentId === null ||
                   isRecording ||
                   isSaving ||
                   predictingAll
                 }
-                onKeyDown={
-                  event => {
-
-                    if (
-                      event.key ===
-                      "Enter"
-                    ) {
-
-                      event.preventDefault();
-
-                      void handleCreatePosition();
-
-                    }
-
+                onKeyDown={event => {
+                  if (
+                    event.key ===
+                    "Enter"
+                  ) {
+                    event.preventDefault();
+                    void handleCreatePosition();
                   }
-                }
+                }}
               />
-
 
               <button
                 type="button"
@@ -1810,6 +2166,7 @@ export default function CollectData() {
                   void handleCreatePosition()
                 }
                 disabled={
+                  selectedExperimentId === null ||
                   isRecording ||
                   isSaving ||
                   predictingAll ||
@@ -1823,19 +2180,15 @@ export default function CollectData() {
 
 
             {selectedPosition && (
-
               <p className="field-help">
-
-                Recording location:{" "}
-
+                Recording location:
+                {" "}
                 <strong>
                   {
                     selectedPosition.name
                   }
                 </strong>
-
               </p>
-
             )}
 
           </div>
@@ -1847,12 +2200,10 @@ export default function CollectData() {
               Target presence
             </label>
 
-
             <div className="segmented-control">
 
               {TARGET_OPTIONS.map(
                 option => (
-
                   <button
                     key={
                       option.value
@@ -1879,7 +2230,6 @@ export default function CollectData() {
                       option.label
                     }
                   </button>
-
                 )
               )}
 
@@ -1889,19 +2239,16 @@ export default function CollectData() {
 
 
           {targetPresence === "yes" && (
-
             <div className="form-section">
 
               <label className="field-label">
                 Distance
               </label>
 
-
               <div className="distance-options">
 
                 {DISTANCE_OPTIONS.map(
                   distance => (
-
                     <button
                       key={
                         distance
@@ -1909,17 +2256,13 @@ export default function CollectData() {
                       type="button"
                       className={
                         distanceCm ===
-                        String(
-                          distance
-                        )
+                        String(distance)
                           ? "active"
                           : ""
                       }
                       onClick={() =>
                         setDistanceCm(
-                          String(
-                            distance
-                          )
+                          String(distance)
                         )
                       }
                       disabled={
@@ -1928,19 +2271,14 @@ export default function CollectData() {
                         predictingAll
                       }
                     >
-                      {
-                        distance
-                      }{" "}
-                      cm
+                      {distance} cm
                     </button>
-
                   )
                 )}
 
               </div>
 
             </div>
-
           )}
 
 
@@ -1953,17 +2291,13 @@ export default function CollectData() {
               Remarks
             </label>
 
-
             <textarea
               id="dataset-remarks"
-              value={
-                remarks
-              }
-              onChange={
-                event =>
-                  setRemarks(
-                    event.target.value
-                  )
+              value={remarks}
+              onChange={event =>
+                setRemarks(
+                  event.target.value
+                )
               }
               placeholder="Optional notes about the recording..."
               rows={3}
@@ -1986,21 +2320,19 @@ export default function CollectData() {
                 void handleCollectSample()
               }
               disabled={
+                selectedExperimentId === null ||
                 isRecording ||
                 isSaving ||
                 predictingAll ||
                 positions.length === 0
               }
             >
-
               {isRecording
                 ? "Recording…"
                 : isSaving
                   ? "Saving…"
                   : "Play chirp & record"}
-
             </button>
-
 
             <p>
               The phone plays the controlled
@@ -2014,12 +2346,14 @@ export default function CollectData() {
         </div>
 
 
+        {/* ====================================================
+            SUMMARY
+            ==================================================== */}
+
         <div className="dataset-card summary-card">
 
           <div className="dataset-card-header">
-
             <div>
-
               <p className="section-kicker">
                 Dataset
               </p>
@@ -2027,68 +2361,52 @@ export default function CollectData() {
               <h2>
                 Overview
               </h2>
-
             </div>
-
           </div>
 
 
           <div className="summary-metrics">
 
             <div>
-
               <span>
                 Total
               </span>
-
               <strong>
                 {
                   summary?.total_samples ??
                   0
                 }
               </strong>
-
             </div>
 
-
             <div>
-
               <span>
                 Labeled
               </span>
-
               <strong>
                 {
                   summary?.labeled_samples ??
                   0
                 }
               </strong>
-
             </div>
 
-
             <div>
-
               <span>
                 Evaluated
               </span>
-
               <strong>
                 {
                   summary?.evaluable_predictions ??
                   0
                 }
               </strong>
-
             </div>
 
-
             <div>
-
               <span>
                 Accuracy
               </span>
-
               <strong>
                 {
                   formatConfidence(
@@ -2096,7 +2414,6 @@ export default function CollectData() {
                   )
                 }
               </strong>
-
             </div>
 
           </div>
@@ -2108,26 +2425,22 @@ export default function CollectData() {
               By position
             </h3>
 
-
             {positionDistribution.length > 0 ? (
-
               <div className="distribution-list">
 
                 {positionDistribution.map(
                   (
                     [
                       positionName,
-                      count
+                      count,
                     ],
                     index
                   ) => (
-
                     <div
                       key={
                         `${positionName}-${index}`
                       }
                     >
-
                       <span>
                         {
                           positionName
@@ -2135,24 +2448,17 @@ export default function CollectData() {
                       </span>
 
                       <strong>
-                        {
-                          count
-                        }
+                        {count}
                       </strong>
-
                     </div>
-
                   )
                 )}
 
               </div>
-
             ) : (
-
               <p className="empty-copy">
                 No samples collected yet.
               </p>
-
             )}
 
           </div>
@@ -2164,25 +2470,19 @@ export default function CollectData() {
               Target presence
             </h3>
 
-
             {targetDistribution.length > 0 ? (
-
               <div className="distribution-list">
 
                 {targetDistribution.map(
                   (
                     [
                       target,
-                      count
+                      count,
                     ]
                   ) => (
-
                     <div
-                      key={
-                        target
-                      }
+                      key={target}
                     >
-
                       <span>
                         {
                           formatTarget(
@@ -2192,24 +2492,17 @@ export default function CollectData() {
                       </span>
 
                       <strong>
-                        {
-                          count
-                        }
+                        {count}
                       </strong>
-
                     </div>
-
                   )
                 )}
 
               </div>
-
             ) : (
-
               <p className="empty-copy">
                 No samples collected yet.
               </p>
-
             )}
 
           </div>
@@ -2221,51 +2514,35 @@ export default function CollectData() {
               Distance
             </h3>
 
-
             {distanceDistribution.length > 0 ? (
-
               <div className="distribution-list">
 
                 {distanceDistribution.map(
                   (
                     [
                       distance,
-                      count
+                      count,
                     ]
                   ) => (
-
                     <div
-                      key={
-                        distance
-                      }
+                      key={distance}
                     >
-
                       <span>
-                        {
-                          distance
-                        }{" "}
-                        cm
+                        {distance} cm
                       </span>
 
                       <strong>
-                        {
-                          count
-                        }
+                        {count}
                       </strong>
-
                     </div>
-
                   )
                 )}
 
               </div>
-
             ) : (
-
               <p className="empty-copy">
                 No distance labels yet.
               </p>
-
             )}
 
           </div>
@@ -2275,16 +2552,15 @@ export default function CollectData() {
       </section>
 
 
-      {/* =====================================================
+      {/* ======================================================
           DATASET ACTIONS
-          ===================================================== */}
+          ====================================================== */}
 
       <section className="dataset-card dataset-actions-card">
 
         <div className="dataset-card-header">
 
           <div>
-
             <p className="section-kicker">
               Dataset actions
             </p>
@@ -2292,7 +2568,6 @@ export default function CollectData() {
             <h2>
               Evaluate & export
             </h2>
-
           </div>
 
         </div>
@@ -2303,19 +2578,17 @@ export default function CollectData() {
           <div className="dataset-action-primary">
 
             <div>
-
               <strong>
                 Run position prediction
               </strong>
 
               <p>
                 Evaluate every labeled recording
-                using leave-one-out KNN and save
-                the predictions to the dataset.
+                from the selected experiment using
+                leave-one-out KNN and save the
+                predictions to that experiment.
               </p>
-
             </div>
-
 
             <button
               type="button"
@@ -2324,16 +2597,17 @@ export default function CollectData() {
                 void handlePredictAll()
               }
               disabled={
+                selectedExperimentId === null ||
                 predictingAll ||
                 predictionSampleId !== null ||
                 samples.length === 0
               }
             >
-
-              {predictingAll
-                ? "Predicting all…"
-                : "Predict All Recordings"}
-
+              {
+                predictingAll
+                  ? "Predicting all…"
+                  : "Predict All Recordings"
+              }
             </button>
 
           </div>
@@ -2342,7 +2616,6 @@ export default function CollectData() {
           <div className="dataset-export-actions">
 
             <div>
-
               <strong>
                 Export dataset
               </strong>
@@ -2350,9 +2623,8 @@ export default function CollectData() {
               <p>
                 Download the acoustic feature
                 vectors and prediction results
-                as CSV files.
+                for the selected experiment.
               </p>
-
             </div>
 
 
@@ -2361,9 +2633,30 @@ export default function CollectData() {
               <a
                 className="secondary-button"
                 href={
-                  getDatasetFeaturesCsvUrl()
+                  selectedExperimentId === null
+                    ? "#"
+                    : getDatasetFeaturesCsvUrl(
+                        selectedExperimentId
+                      )
                 }
-                download="dataset_features.csv"
+                download={
+                  selectedExperimentId === null
+                    ? undefined
+                    : `dataset_features_EXP-${String(
+                        selectedExperimentId
+                      ).padStart(3, "0")}.csv`
+                }
+                onClick={event => {
+                  if (
+                    selectedExperimentId === null
+                  ) {
+                    event.preventDefault();
+
+                    setError(
+                      "Select an experiment first."
+                    );
+                  }
+                }}
               >
                 Download Features CSV
               </a>
@@ -2372,9 +2665,30 @@ export default function CollectData() {
               <a
                 className="secondary-button"
                 href={
-                  getDatasetPredictionsCsvUrl()
+                  selectedExperimentId === null
+                    ? "#"
+                    : getDatasetPredictionsCsvUrl(
+                        selectedExperimentId
+                      )
                 }
-                download="dataset_predictions.csv"
+                download={
+                  selectedExperimentId === null
+                    ? undefined
+                    : `dataset_predictions_EXP-${String(
+                        selectedExperimentId
+                      ).padStart(3, "0")}.csv`
+                }
+                onClick={event => {
+                  if (
+                    selectedExperimentId === null
+                  ) {
+                    event.preventDefault();
+
+                    setError(
+                      "Select an experiment first."
+                    );
+                  }
+                }}
               >
                 Download Predictions CSV
               </a>
@@ -2388,14 +2702,16 @@ export default function CollectData() {
       </section>
 
 
-      {featureSample && (
+      {/* ======================================================
+          FEATURE PANEL
+          ====================================================== */}
 
+      {featureSample && (
         <section className="dataset-card feature-card">
 
           <div className="dataset-card-header">
 
             <div>
-
               <p className="section-kicker">
                 Acoustic analysis
               </p>
@@ -2414,9 +2730,7 @@ export default function CollectData() {
                   "No position"
                 }
               </p>
-
             </div>
-
 
             <button
               type="button"
@@ -2432,11 +2746,8 @@ export default function CollectData() {
 
 
           {featureEntries.length > 0 ? (
-
             <>
-
               <div className="feature-intro">
-
                 <p>
                   These are the acoustic features
                   extracted from the recorded
@@ -2445,7 +2756,6 @@ export default function CollectData() {
                   acoustic fingerprint used by
                   the current KNN baseline.
                 </p>
-
               </div>
 
 
@@ -2453,18 +2763,12 @@ export default function CollectData() {
 
                 {featureEntries.map(
                   feature => (
-
                     <div
                       className="feature-item"
-                      key={
-                        feature.key
-                      }
+                      key={feature.key}
                     >
-
                       <span>
-                        {
-                          feature.label
-                        }
+                        {feature.label}
                       </span>
 
                       <strong>
@@ -2476,24 +2780,16 @@ export default function CollectData() {
                       </strong>
 
                       <small>
-                        {
-                          feature.key
-                        }
+                        {feature.key}
                       </small>
-
                     </div>
-
                   )
                 )}
 
               </div>
-
             </>
-
           ) : (
-
             <div className="empty-dataset">
-
               <h3>
                 Feature values are not available
               </h3>
@@ -2502,33 +2798,29 @@ export default function CollectData() {
                 The sample was saved successfully,
                 but the backend response did not
                 include the extracted feature object.
-                The next step is to expose the stored
-                features through the dataset API.
               </p>
-
             </div>
-
           )}
 
         </section>
-
       )}
 
 
-      {prediction && (
+      {/* ======================================================
+          PREDICTION PANEL
+          ====================================================== */}
 
+      {prediction && (
         <section className="dataset-card prediction-card">
 
           <div className="dataset-card-header">
 
             <div>
-
               <p className="section-kicker">
                 Prediction
               </p>
 
               <h2>
-
                 {prediction.sample_id
                   ? `Sample ${
                       samples.find(
@@ -2539,11 +2831,8 @@ export default function CollectData() {
                       ""
                     }`
                   : "Result"}
-
               </h2>
-
             </div>
-
 
             <button
               type="button"
@@ -2561,7 +2850,6 @@ export default function CollectData() {
           <div className="prediction-main">
 
             <div className="prediction-result">
-
               <span>
                 Predicted position
               </span>
@@ -2572,12 +2860,10 @@ export default function CollectData() {
                   "Unknown"
                 }
               </strong>
-
             </div>
 
 
             <div className="prediction-result">
-
               <span>
                 Confidence
               </span>
@@ -2589,12 +2875,10 @@ export default function CollectData() {
                   )
                 }
               </strong>
-
             </div>
 
 
             <div className="prediction-result">
-
               <span>
                 Ground truth
               </span>
@@ -2605,19 +2889,20 @@ export default function CollectData() {
                   "Unknown"
                 }
               </strong>
-
             </div>
 
 
             <div className="prediction-result">
-
               <span>
                 Evaluation
               </span>
 
               <strong
                 className={
-                  `evaluation-${prediction.evaluation ?? "not_evaluable"}`
+                  `evaluation-${
+                    prediction.evaluation ??
+                    "not_evaluable"
+                  }`
                 }
               >
                 {
@@ -2626,7 +2911,6 @@ export default function CollectData() {
                   )
                 }
               </strong>
-
             </div>
 
           </div>
@@ -2635,7 +2919,6 @@ export default function CollectData() {
           <div className="nearest-section">
 
             <div>
-
               <p className="section-kicker">
                 Reference comparison
               </p>
@@ -2643,87 +2926,76 @@ export default function CollectData() {
               <h3>
                 Nearest fingerprints
               </h3>
-
             </div>
 
 
             {nearestSamples.length > 0 ? (
-
               <div className="nearest-table">
 
-                {
-                  nearestSamples.map(
-                    (
-                      nearest,
-                      index
-                    ) => (
+                {nearestSamples.map(
+                  (
+                    nearest,
+                    index
+                  ) => (
+                    <div
+                      className="nearest-row"
+                      key={
+                        `${nearest.sample_id}-${index}`
+                      }
+                    >
+                      <span>
+                        {index + 1}
+                      </span>
 
-                      <div
-                        className="nearest-row"
-                        key={
-                          `${nearest.sample_id}-${index}`
+                      <strong>
+                        {
+                          nearest.sample_code ??
+                          "Unknown"
                         }
-                      >
+                      </strong>
 
-                        <span>
-                          {
-                            index + 1
-                          }
-                        </span>
+                      <span>
+                        {
+                          nearest.position_name ??
+                          "Unknown"
+                        }
+                      </span>
 
-                        <strong>
-                          {
-                            nearest.sample_code ??
-                            "Unknown"
-                          }
-                        </strong>
-
-                        <span>
-                          {
-                            nearest.position_name ??
-                            "Unknown"
-                          }
-                        </span>
-
-                        <span>
-                          distance{" "}
-                          {
-                            formatDistance(
-                              nearest.distance
-                            )
-                          }
-                        </span>
-
-                      </div>
-
-                    )
+                      <span>
+                        distance{" "}
+                        {
+                          formatDistance(
+                            nearest.distance
+                          )
+                        }
+                      </span>
+                    </div>
                   )
-                }
+                )}
 
               </div>
-
             ) : (
-
               <p className="empty-copy">
                 No reference samples were
                 available.
               </p>
-
             )}
 
           </div>
 
         </section>
-
       )}
 
+
+      {/* ======================================================
+          SAMPLE TABLE
+          ====================================================== */}
 
       <section className="dataset-card samples-card">
 
         <div className="dataset-card-header">
 
           <div>
-
             <p className="section-kicker">
               02
             </p>
@@ -2731,27 +3003,20 @@ export default function CollectData() {
             <h2>
               Collected samples
             </h2>
-
           </div>
 
-
           <span className="sample-count">
-
-            {samples.length}{" "}
-
-            {
-              samples.length === 1
-                ? "sample"
-                : "samples"
-            }
-
+            {samples.length}
+            {" "}
+            {samples.length === 1
+              ? "sample"
+              : "samples"}
           </span>
 
         </div>
 
 
         {samples.length === 0 ? (
-
           <div className="empty-dataset">
 
             <h3>
@@ -2759,53 +3024,27 @@ export default function CollectData() {
             </h3>
 
             <p>
-              Create a position and record
-              the first acoustic response
-              above.
+              {selectedExperiment
+                ? `Create a position in ${selectedExperiment.name} and record the first acoustic response above.`
+                : "Select or create an experiment first."}
             </p>
 
           </div>
-
         ) : (
-
           <div className="dataset-table-wrapper">
 
             <table className="dataset-table">
 
               <thead>
-
                 <tr>
-
-                  <th>
-                    ID
-                  </th>
-
-                  <th>
-                    Position
-                  </th>
-
-                  <th>
-                    Target
-                  </th>
-
-                  <th>
-                    Distance
-                  </th>
-
-                  <th>
-                    Prediction
-                  </th>
-
-                  <th>
-                    Evaluation
-                  </th>
-
-                  <th>
-                    Actions
-                  </th>
-
+                  <th>ID</th>
+                  <th>Position</th>
+                  <th>Target</th>
+                  <th>Distance</th>
+                  <th>Prediction</th>
+                  <th>Evaluation</th>
+                  <th>Actions</th>
                 </tr>
-
               </thead>
 
 
@@ -2813,7 +3052,6 @@ export default function CollectData() {
 
                 {samples.map(
                   sample => (
-
                     <tr
                       key={
                         sample.id
@@ -2821,7 +3059,6 @@ export default function CollectData() {
                     >
 
                       <td>
-
                         <strong>
                           {
                             sample.sample_code
@@ -2835,7 +3072,6 @@ export default function CollectData() {
                             )
                           }
                         </small>
-
                       </td>
 
 
@@ -2857,21 +3093,18 @@ export default function CollectData() {
 
 
                       <td>
-
                         {
                           sample.distance_cm ===
-                          null
-
+                          null ||
+                          sample.distance_cm ===
+                          undefined
                             ? "—"
-
                             : `${sample.distance_cm} cm`
                         }
-
                       </td>
 
 
                       <td>
-
                         <div className="prediction-cell">
 
                           <span>
@@ -2881,10 +3114,8 @@ export default function CollectData() {
                             }
                           </span>
 
-
                           {typeof sample.prediction_confidence ===
                             "number" && (
-
                             <small>
                               {
                                 formatConfidence(
@@ -2892,11 +3123,9 @@ export default function CollectData() {
                                 )
                               }
                             </small>
-
                           )}
 
                         </div>
-
                       </td>
 
 
@@ -2904,24 +3133,18 @@ export default function CollectData() {
 
                         {sample.prediction_evaluation ===
                         "correct" ? (
-
                           <span className="evaluation-badge evaluation-badge-correct">
                             Correct
                           </span>
-
                         ) : sample.prediction_evaluation ===
                           "incorrect" ? (
-
                           <span className="evaluation-badge evaluation-badge-incorrect">
                             Incorrect
                           </span>
-
                         ) : (
-
                           <span className="evaluation-badge">
                             —
                           </span>
-
                         )}
 
                       </td>
@@ -2943,16 +3166,12 @@ export default function CollectData() {
                               predictingAll
                             }
                           >
-
                             {
                               audioPlayingId ===
                               sample.id
-
                                 ? "Playing…"
-
                                 : "Play"
                             }
-
                           </button>
 
 
@@ -2986,16 +3205,12 @@ export default function CollectData() {
                               predictingAll
                             }
                           >
-
                             {
                               predictionSampleId ===
                               sample.id
-
                                 ? "Predicting…"
-
                                 : "Predict"
                             }
-
                           </button>
 
 
@@ -3035,7 +3250,6 @@ export default function CollectData() {
                       </td>
 
                     </tr>
-
                   )
                 )}
 
@@ -3044,14 +3258,16 @@ export default function CollectData() {
             </table>
 
           </div>
-
         )}
 
       </section>
 
 
-      {editing && (
+      {/* ======================================================
+          EDIT MODAL
+          ====================================================== */}
 
+      {editing && (
         <div className="modal-backdrop">
 
           <div className="dataset-modal">
@@ -3059,7 +3275,6 @@ export default function CollectData() {
             <div className="dataset-card-header">
 
               <div>
-
                 <p className="section-kicker">
                   Edit
                 </p>
@@ -3069,9 +3284,7 @@ export default function CollectData() {
                     editing.sample.sample_code
                   }
                 </h2>
-
               </div>
-
 
               <button
                 type="button"
@@ -3092,31 +3305,28 @@ export default function CollectData() {
                 Position
               </label>
 
-
               <select
                 value={
                   editing.positionId ??
                   ""
                 }
-                onChange={
-                  event =>
-                    setEditing(
-                      current =>
-                        current
-                          ? {
-                              ...current,
-
-                              positionId:
-                                event.target
-                                  .value
-                                  ? Number(
-                                      event.target
-                                        .value
-                                    )
-                                  : null
-                            }
-                          : current
-                    )
+                onChange={event =>
+                  setEditing(
+                    current =>
+                      current
+                        ? {
+                            ...current,
+                            positionId:
+                              event.target
+                                .value
+                                ? Number(
+                                    event.target
+                                      .value
+                                  )
+                                : null,
+                          }
+                        : current
+                  )
                 }
                 disabled={
                   editing.targetPresence !==
@@ -3128,10 +3338,8 @@ export default function CollectData() {
                   Select position
                 </option>
 
-
                 {positions.map(
                   position => (
-
                     <option
                       key={
                         position.id
@@ -3144,7 +3352,6 @@ export default function CollectData() {
                         position.name
                       }
                     </option>
-
                   )
                 )}
 
@@ -3159,12 +3366,10 @@ export default function CollectData() {
                 Target presence
               </label>
 
-
               <div className="segmented-control">
 
                 {TARGET_OPTIONS.map(
                   option => (
-
                     <button
                       key={
                         option.value
@@ -3182,18 +3387,14 @@ export default function CollectData() {
                             current
                               ? {
                                   ...current,
-
                                   targetPresence:
                                     option.value,
-
                                   distanceCm:
                                     option.value ===
                                     "yes"
-
                                       ? current.distanceCm ||
                                         "15"
-
-                                      : ""
+                                      : "",
                                 }
                               : current
                         )
@@ -3203,7 +3404,6 @@ export default function CollectData() {
                         option.label
                       }
                     </button>
-
                   )
                 )}
 
@@ -3214,19 +3414,16 @@ export default function CollectData() {
 
             {editing.targetPresence ===
               "yes" && (
-
               <div className="form-section">
 
                 <label className="field-label">
                   Distance
                 </label>
 
-
                 <div className="distance-options">
 
                   {DISTANCE_OPTIONS.map(
                     distance => (
-
                       <button
                         key={
                           distance
@@ -3246,29 +3443,23 @@ export default function CollectData() {
                               current
                                 ? {
                                     ...current,
-
                                     distanceCm:
                                       String(
                                         distance
-                                      )
+                                      ),
                                   }
                                 : current
                           )
                         }
                       >
-                        {
-                          distance
-                        }{" "}
-                        cm
+                        {distance} cm
                       </button>
-
                     )
                   )}
 
                 </div>
 
               </div>
-
             )}
 
 
@@ -3278,25 +3469,22 @@ export default function CollectData() {
                 Remarks
               </label>
 
-
               <textarea
                 value={
                   editing.remarks
                 }
-                onChange={
-                  event =>
-                    setEditing(
-                      current =>
-                        current
-                          ? {
-                              ...current,
-
-                              remarks:
-                                event.target
-                                  .value
-                            }
-                          : current
-                    )
+                onChange={event =>
+                  setEditing(
+                    current =>
+                      current
+                        ? {
+                            ...current,
+                            remarks:
+                              event.target
+                                .value,
+                          }
+                        : current
+                  )
                 }
                 rows={4}
               />
@@ -3316,7 +3504,6 @@ export default function CollectData() {
                 Cancel
               </button>
 
-
               <button
                 type="button"
                 className="primary-button"
@@ -3332,7 +3519,6 @@ export default function CollectData() {
           </div>
 
         </div>
-
       )}
 
     </main>

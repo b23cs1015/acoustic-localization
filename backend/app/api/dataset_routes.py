@@ -12,10 +12,13 @@ from fastapi import (
     File,
     Form,
     HTTPException,
-    UploadFile
+    UploadFile,
 )
 
-from fastapi.responses import StreamingResponse
+from fastapi.responses import (
+    FileResponse,
+    StreamingResponse,
+)
 
 from ..audio.features import extract_features
 from ..audio.preprocessing import load_audio
@@ -28,19 +31,20 @@ from ..dataset.models import (
     DatasetSampleResponse,
     DatasetSamplesResponse,
     DatasetSummaryResponse,
-    UpdateDatasetSampleRequest
+    UpdateDatasetSampleRequest,
 )
 
 from ..dataset.predictor import (
     DatasetPredictor,
-    FEATURE_NAMES
+    FEATURE_NAMES,
 )
 
 from ..dataset.storage import (
-    RECORDINGS_DIR,
     create_position,
     create_sample,
     delete_sample,
+    get_experiment,
+    get_experiment_recordings_dir,
     get_position,
     get_positions,
     get_reference_samples,
@@ -49,13 +53,13 @@ from ..dataset.storage import (
     get_summary,
     initialize_dataset_database,
     save_prediction,
-    update_sample
+    update_sample,
 )
 
 
 router = APIRouter(
     prefix="/api/dataset",
-    tags=["Dataset"]
+    tags=["Dataset"],
 )
 
 
@@ -63,10 +67,75 @@ predictor = DatasetPredictor()
 
 
 # =========================================================
+# DEFAULT EXPERIMENT
+# =========================================================
+#
+# EXP-001 is the original 200-sample benchmark.
+#
+# Keeping this as the default means existing frontend
+# requests that do not yet send experiment_id continue to
+# work exactly against the original experiment.
+# =========================================================
+
+DEFAULT_EXPERIMENT_ID = 1
+
+
+# =========================================================
 # INITIALIZATION
 # =========================================================
 
 initialize_dataset_database()
+
+
+# =========================================================
+# EXPERIMENT VALIDATION HELPER
+# =========================================================
+
+def _resolve_experiment_id(
+    experiment_id: Optional[int],
+) -> int:
+    """
+    Resolve the requested experiment.
+
+    If experiment_id is omitted, EXP-001 is used for
+    backwards compatibility.
+
+    The returned experiment is also validated.
+    """
+
+    resolved_id = (
+        experiment_id
+        if experiment_id is not None
+        else DEFAULT_EXPERIMENT_ID
+    )
+
+    try:
+
+        experiment = get_experiment(
+            resolved_id
+        )
+
+    except Exception as error:
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Could not access experiment "
+                f"{resolved_id}: {error}"
+            ),
+        )
+
+    if experiment is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"Experiment {resolved_id} "
+                "does not exist."
+            ),
+        )
+
+    return resolved_id
 
 
 # =========================================================
@@ -80,8 +149,12 @@ async def dataset_health():
 
     return {
         "success": True,
+
         "message":
-            "Dataset service is running."
+            "Dataset service is running.",
+
+        "default_experiment_id":
+            DEFAULT_EXPERIMENT_ID,
     }
 
 
@@ -91,42 +164,68 @@ async def dataset_health():
 
 @router.get(
     "/positions",
-    response_model=DatasetPositionsResponse
+    response_model=DatasetPositionsResponse,
 )
-async def dataset_positions():
+async def dataset_positions(
+    experiment_id: Optional[int] = None,
+):
+
+    resolved_experiment_id = (
+        _resolve_experiment_id(
+            experiment_id
+        )
+    )
 
     return {
         "success": True,
+
         "positions":
-            get_positions()
+            get_positions(
+                experiment_id=
+                    resolved_experiment_id
+            ),
     }
 
 
+# =========================================================
+# CREATE POSITION
+# =========================================================
+
 @router.post(
     "/positions",
-    response_model=DatasetPositionResponse
+    response_model=DatasetPositionResponse,
 )
 async def dataset_create_position(
-    request: CreateDatasetPositionRequest
+    request: CreateDatasetPositionRequest,
+    experiment_id: Optional[int] = None,
 ):
+
+    resolved_experiment_id = (
+        _resolve_experiment_id(
+            experiment_id
+        )
+    )
 
     try:
 
         position = create_position(
-            request.name
+            request.name,
+            experiment_id=
+                resolved_experiment_id,
         )
 
     except ValueError as error:
 
         raise HTTPException(
             status_code=400,
-            detail=str(error)
+            detail=str(error),
         )
 
     return {
         "success": True,
+
         "position":
-            position
+            position,
     }
 
 
@@ -136,7 +235,7 @@ async def dataset_create_position(
 
 @router.post(
     "/samples",
-    response_model=DatasetSampleResponse
+    response_model=DatasetSampleResponse,
 )
 async def create_dataset_sample(
     audio: UploadFile = File(...),
@@ -155,17 +254,31 @@ async def create_dataset_sample(
 
     remarks: Optional[str] = Form(
         default=None
-    )
+    ),
+
+    experiment_id: Optional[int] = Form(
+        default=None
+    ),
 ):
 
     # -----------------------------------------------------
-    # Validate target presence
+    # Resolve experiment.
+    # -----------------------------------------------------
+
+    resolved_experiment_id = (
+        _resolve_experiment_id(
+            experiment_id
+        )
+    )
+
+    # -----------------------------------------------------
+    # Validate target presence.
     # -----------------------------------------------------
 
     valid_target_values = {
         "yes",
         "no",
-        "cant_say"
+        "cant_say",
     }
 
     if target_presence not in valid_target_values:
@@ -175,11 +288,11 @@ async def create_dataset_sample(
             detail=(
                 "target_presence must be "
                 "'yes', 'no', or 'cant_say'."
-            )
+            ),
         )
 
     # -----------------------------------------------------
-    # Validate distance
+    # Validate distance.
     # -----------------------------------------------------
 
     if distance_cm is not None:
@@ -190,47 +303,50 @@ async def create_dataset_sample(
                 status_code=400,
                 detail=(
                     "Distance cannot be negative."
-                )
+                ),
             )
 
         allowed_distances = {
             15.0,
             30.0,
-            45.0
+            45.0,
         }
 
-        if distance_cm not in (
-            allowed_distances
-        ):
+        if distance_cm not in allowed_distances:
 
             raise HTTPException(
                 status_code=400,
                 detail=(
                     "Distance must be "
                     "15, 30, or 45 cm."
-                )
+                ),
             )
 
     # -----------------------------------------------------
-    # Enforce sensible combinations
+    # Enforce sensible combinations.
     # -----------------------------------------------------
 
-    if target_presence == "no":
+    if target_presence in {
+        "no",
+        "cant_say",
+    }:
 
         distance_cm = None
 
-    elif target_presence == "cant_say":
-
-        distance_cm = None
-
     # -----------------------------------------------------
-    # Position validation
+    # Position validation.
+    #
+    # IMPORTANT:
+    #
+    # Position must belong to the selected experiment.
     # -----------------------------------------------------
 
     if position_id is not None:
 
         position = get_position(
-            position_id
+            position_id,
+            experiment_id=
+                resolved_experiment_id,
         )
 
         if position is None:
@@ -238,13 +354,13 @@ async def create_dataset_sample(
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    "Selected position "
-                    "does not exist."
-                )
+                    "Selected position does not exist "
+                    "in the selected experiment."
+                ),
             )
 
     # -----------------------------------------------------
-    # Validate file
+    # Validate file.
     # -----------------------------------------------------
 
     original_filename = (
@@ -257,11 +373,27 @@ async def create_dataset_sample(
 
         raise HTTPException(
             status_code=400,
-            detail="Only WAV files are supported."
+            detail=(
+                "Only WAV files are supported."
+            ),
         )
 
     # -----------------------------------------------------
-    # Temporary file
+    # Experiment recording directory.
+    # -----------------------------------------------------
+
+    recordings_dir = (
+        get_experiment_recordings_dir(
+            resolved_experiment_id
+        )
+    )
+
+    # -----------------------------------------------------
+    # Temporary file.
+    # -----------------------------------------------------
+    #
+    # Temporary uploads are placed directly inside the
+    # selected experiment's recording directory.
     # -----------------------------------------------------
 
     temporary_filename = (
@@ -269,7 +401,7 @@ async def create_dataset_sample(
     )
 
     temporary_path = (
-        RECORDINGS_DIR
+        recordings_dir
         / temporary_filename
     )
 
@@ -277,18 +409,24 @@ async def create_dataset_sample(
 
     try:
 
+        # -------------------------------------------------
+        # Read uploaded file.
+        # -------------------------------------------------
+
         file_data = await audio.read()
 
         if not file_data:
 
             raise HTTPException(
                 status_code=400,
-                detail="Uploaded audio is empty."
+                detail=(
+                    "Uploaded audio is empty."
+                ),
             )
 
         with open(
             temporary_path,
-            "wb"
+            "wb",
         ) as file:
 
             file.write(
@@ -296,13 +434,13 @@ async def create_dataset_sample(
             )
 
         # -------------------------------------------------
-        # Audio loading
+        # Audio loading.
         # -------------------------------------------------
 
         audio_data, sample_rate = (
             load_audio(
                 temporary_path,
-                target_sample_rate=48000
+                target_sample_rate=48000,
             )
         )
 
@@ -310,7 +448,9 @@ async def create_dataset_sample(
 
             raise HTTPException(
                 status_code=400,
-                detail="Audio contains no samples."
+                detail=(
+                    "Audio contains no samples."
+                ),
             )
 
         duration_seconds = (
@@ -319,38 +459,50 @@ async def create_dataset_sample(
         )
 
         # -------------------------------------------------
-        # Feature extraction
+        # Feature extraction.
         # -------------------------------------------------
 
         features = extract_features(
             audio_data,
-            sample_rate
+            sample_rate,
         )
 
         # -------------------------------------------------
-        # Create DB record
+        # Create database record.
+        #
+        # The temporary recording name is stored initially.
+        # It is replaced with AL-XXXX.wav after the sample
+        # ID is generated.
         # -------------------------------------------------
 
         sample = create_sample(
-            recording_filename=(
-                "pending.wav"
-            ),
+            recording_filename="pending.wav",
+
             position_id=position_id,
+
             target_presence=(
                 target_presence
             ),
+
             distance_cm=distance_cm,
+
             remarks=(
                 remarks.strip()
                 if remarks
                 and remarks.strip()
                 else None
             ),
+
             features=features,
+
             duration_seconds=(
                 duration_seconds
             ),
-            sample_rate=sample_rate
+
+            sample_rate=sample_rate,
+
+            experiment_id=
+                resolved_experiment_id,
         )
 
         sample_id = sample["id"]
@@ -359,26 +511,34 @@ async def create_dataset_sample(
             "sample_code"
         ]
 
+        # -------------------------------------------------
+        # Final recording filename.
+        # -------------------------------------------------
+
         final_filename = (
             f"{sample_code}.wav"
         )
 
         final_path = (
-            RECORDINGS_DIR
+            recordings_dir
             / final_filename
         )
 
+        # -------------------------------------------------
+        # Move temporary file to final location.
+        # -------------------------------------------------
+
         os.replace(
             temporary_path,
-            final_path
+            final_path,
         )
 
         # -------------------------------------------------
-        # Update recording filename
+        # Update recording filename.
         # -------------------------------------------------
 
         from ..dataset.storage import (
-            get_connection
+            get_connection,
         )
 
         connection = get_connection()
@@ -390,11 +550,13 @@ async def create_dataset_sample(
                 UPDATE samples
                 SET recording_filename = ?
                 WHERE id = ?
+                  AND experiment_id = ?
                 """,
                 (
                     final_filename,
-                    sample_id
-                )
+                    sample_id,
+                    resolved_experiment_id,
+                ),
             )
 
             connection.commit()
@@ -403,18 +565,27 @@ async def create_dataset_sample(
 
             connection.close()
 
+        # -------------------------------------------------
+        # Fetch updated sample.
+        # -------------------------------------------------
+
         sample = get_sample(
-            sample_id
+            sample_id,
+            experiment_id=
+                resolved_experiment_id,
         )
 
         return {
             "success": True,
-            "sample": sample
+
+            "sample":
+                sample,
         }
 
     except HTTPException:
 
         if temporary_path.exists():
+
             temporary_path.unlink()
 
         raise
@@ -422,17 +593,21 @@ async def create_dataset_sample(
     except Exception as error:
 
         if temporary_path.exists():
+
             temporary_path.unlink()
 
-        if final_path is not None:
-            if final_path.exists():
-                final_path.unlink()
+        if (
+            final_path is not None
+            and final_path.exists()
+        ):
+
+            final_path.unlink()
 
         raise HTTPException(
             status_code=500,
             detail=(
                 f"Could not process audio: {error}"
-            )
+            ),
         )
 
 
@@ -442,16 +617,31 @@ async def create_dataset_sample(
 
 @router.get(
     "/samples",
-    response_model=DatasetSamplesResponse
+    response_model=DatasetSamplesResponse,
 )
-async def dataset_samples():
+async def dataset_samples(
+    experiment_id: Optional[int] = None,
+):
 
-    samples = get_samples()
+    resolved_experiment_id = (
+        _resolve_experiment_id(
+            experiment_id
+        )
+    )
+
+    samples = get_samples(
+        experiment_id=
+            resolved_experiment_id
+    )
 
     return {
         "success": True,
-        "count": len(samples),
-        "samples": samples
+
+        "count":
+            len(samples),
+
+        "samples":
+            samples,
     }
 
 
@@ -461,26 +651,41 @@ async def dataset_samples():
 
 @router.get(
     "/samples/{sample_id}",
-    response_model=DatasetSampleResponse
+    response_model=DatasetSampleResponse,
 )
 async def dataset_sample(
-    sample_id: int
+    sample_id: int,
+
+    experiment_id: Optional[int] = None,
 ):
 
+    resolved_experiment_id = (
+        _resolve_experiment_id(
+            experiment_id
+        )
+    )
+
     sample = get_sample(
-        sample_id
+        sample_id,
+        experiment_id=
+            resolved_experiment_id,
     )
 
     if sample is None:
 
         raise HTTPException(
             status_code=404,
-            detail="Dataset sample not found."
+            detail=(
+                "Dataset sample not found "
+                "in the selected experiment."
+            ),
         )
 
     return {
         "success": True,
-        "sample": sample
+
+        "sample":
+            sample,
     }
 
 
@@ -490,22 +695,36 @@ async def dataset_sample(
 
 @router.patch(
     "/samples/{sample_id}",
-    response_model=DatasetSampleResponse
+    response_model=DatasetSampleResponse,
 )
 async def dataset_update_sample(
     sample_id: int,
-    request: UpdateDatasetSampleRequest
+
+    request: UpdateDatasetSampleRequest,
+
+    experiment_id: Optional[int] = None,
 ):
 
+    resolved_experiment_id = (
+        _resolve_experiment_id(
+            experiment_id
+        )
+    )
+
     existing = get_sample(
-        sample_id
+        sample_id,
+        experiment_id=
+            resolved_experiment_id,
     )
 
     if existing is None:
 
         raise HTTPException(
             status_code=404,
-            detail="Dataset sample not found."
+            detail=(
+                "Dataset sample not found "
+                "in the selected experiment."
+            ),
         )
 
     position_id = (
@@ -532,18 +751,56 @@ async def dataset_update_sample(
         else existing["remarks"]
     )
 
-    if target_presence == "no":
+    # -----------------------------------------------------
+    # Validate target presence.
+    # -----------------------------------------------------
+
+    valid_target_values = {
+        "yes",
+        "no",
+        "cant_say",
+    }
+
+    if target_presence not in valid_target_values:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "target_presence must be "
+                "'yes', 'no', or 'cant_say'."
+            ),
+        )
+
+    # -----------------------------------------------------
+    # Enforce target/distance relationship.
+    # -----------------------------------------------------
+
+    if target_presence in {
+        "no",
+        "cant_say",
+    }:
+
         distance_cm = None
 
-    elif target_presence == "cant_say":
-        distance_cm = None
+    # -----------------------------------------------------
+    # Validate distance.
+    # -----------------------------------------------------
 
     if distance_cm is not None:
+
+        if distance_cm < 0:
+
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Distance cannot be negative."
+                ),
+            )
 
         if distance_cm not in {
             15.0,
             30.0,
-            45.0
+            45.0,
         }:
 
             raise HTTPException(
@@ -551,31 +808,62 @@ async def dataset_update_sample(
                 detail=(
                     "Distance must be "
                     "15, 30, or 45 cm."
-                )
+                ),
+            )
+
+    # -----------------------------------------------------
+    # Validate position.
+    # -----------------------------------------------------
+
+    if position_id is not None:
+
+        position = get_position(
+            position_id,
+            experiment_id=
+                resolved_experiment_id,
+        )
+
+        if position is None:
+
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Selected position does not exist "
+                    "in the selected experiment."
+                ),
             )
 
     try:
 
         updated = update_sample(
             sample_id,
-            position_id=position_id,
+
+            position_id=
+                position_id,
+
             target_presence=(
                 target_presence
             ),
-            distance_cm=distance_cm,
-            remarks=remarks
+
+            distance_cm=
+                distance_cm,
+
+            remarks=
+                remarks,
         )
 
     except ValueError as error:
 
         raise HTTPException(
             status_code=400,
-            detail=str(error)
+            detail=str(error),
         )
 
     return {
         "success": True,
-        "sample": updated
+
+        "sample":
+            updated,
     }
 
 
@@ -585,11 +873,35 @@ async def dataset_update_sample(
 
 @router.delete(
     "/samples/{sample_id}",
-    response_model=DatasetSampleResponse
+    response_model=DatasetSampleResponse,
 )
 async def dataset_delete_sample(
-    sample_id: int
+    sample_id: int,
+
+    experiment_id: Optional[int] = None,
 ):
+
+    resolved_experiment_id = (
+        _resolve_experiment_id(
+            experiment_id
+        )
+    )
+
+    existing = get_sample(
+        sample_id,
+        experiment_id=
+            resolved_experiment_id,
+    )
+
+    if existing is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Dataset sample not found "
+                "in the selected experiment."
+            ),
+        )
 
     result = delete_sample(
         sample_id
@@ -599,7 +911,7 @@ async def dataset_delete_sample(
 
         raise HTTPException(
             status_code=404,
-            detail="Dataset sample not found."
+            detail="Dataset sample not found.",
         )
 
     filename = result[
@@ -609,7 +921,9 @@ async def dataset_delete_sample(
     if filename:
 
         recording_path = (
-            RECORDINGS_DIR
+            get_experiment_recordings_dir(
+                resolved_experiment_id
+            )
             / filename
         )
 
@@ -617,9 +931,34 @@ async def dataset_delete_sample(
 
             recording_path.unlink()
 
+        else:
+
+            # ------------------------------------------------
+            # Backwards compatibility:
+            #
+            # Existing EXP-001 recordings may still be in
+            # the legacy recordings directory before the
+            # migration copy is completed.
+            # ------------------------------------------------
+
+            from ..dataset.storage import (
+                LEGACY_RECORDINGS_DIR,
+            )
+
+            legacy_path = (
+                LEGACY_RECORDINGS_DIR
+                / filename
+            )
+
+            if legacy_path.exists():
+
+                legacy_path.unlink()
+
     return {
         "success": True,
-        "sample": result["sample"]
+
+        "sample":
+            result["sample"],
     }
 
 
@@ -631,42 +970,85 @@ async def dataset_delete_sample(
     "/samples/{sample_id}/audio"
 )
 async def dataset_sample_audio(
-    sample_id: int
+    sample_id: int,
+
+    experiment_id: Optional[int] = None,
 ):
 
-    from fastapi.responses import (
-        FileResponse
+    resolved_experiment_id = (
+        _resolve_experiment_id(
+            experiment_id
+        )
     )
 
     sample = get_sample(
-        sample_id
+        sample_id,
+        experiment_id=
+            resolved_experiment_id,
     )
 
     if sample is None:
 
         raise HTTPException(
             status_code=404,
-            detail="Dataset sample not found."
+            detail=(
+                "Dataset sample not found "
+                "in the selected experiment."
+            ),
+        )
+
+    filename = sample[
+        "recording_filename"
+    ]
+
+    if not filename:
+
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "This sample has no recording."
+            ),
         )
 
     recording_path = (
-        RECORDINGS_DIR
-        / sample["recording_filename"]
+        get_experiment_recordings_dir(
+            resolved_experiment_id
+        )
+        / filename
     )
+
+    # -----------------------------------------------------
+    # Backwards compatibility for EXP-001.
+    # -----------------------------------------------------
+
+    if not recording_path.exists():
+
+        from ..dataset.storage import (
+            LEGACY_RECORDINGS_DIR,
+        )
+
+        legacy_path = (
+            LEGACY_RECORDINGS_DIR
+            / filename
+        )
+
+        if legacy_path.exists():
+
+            recording_path = legacy_path
 
     if not recording_path.exists():
 
         raise HTTPException(
             status_code=404,
-            detail="Recording file not found."
+            detail="Recording file not found.",
         )
 
     return FileResponse(
         recording_path,
+
         media_type="audio/wav",
-        filename=(
-            sample["recording_filename"]
-        )
+
+        filename=filename,
     )
 
 
@@ -676,42 +1058,69 @@ async def dataset_sample_audio(
 
 @router.post(
     "/samples/{sample_id}/predict",
-    response_model=DatasetPredictionResponse
+    response_model=DatasetPredictionResponse,
 )
 async def predict_dataset_sample(
-    sample_id: int
+    sample_id: int,
+
+    experiment_id: Optional[int] = None,
 ):
 
+    resolved_experiment_id = (
+        _resolve_experiment_id(
+            experiment_id
+        )
+    )
+
     sample = get_sample(
-        sample_id
+        sample_id,
+        experiment_id=
+            resolved_experiment_id,
     )
 
     if sample is None:
 
         raise HTTPException(
             status_code=404,
-            detail="Dataset sample not found."
+            detail=(
+                "Dataset sample not found "
+                "in the selected experiment."
+            ),
         )
 
     # -----------------------------------------------------
     # IMPORTANT:
     #
-    # The selected sample is explicitly excluded from
-    # the reference dataset.
+    # Reference samples are restricted to the same
+    # experiment.
     #
-    # This prevents a sample from matching itself with
-    # distance = 0 and producing a meaningless evaluation.
+    # The current sample is excluded for leave-one-out
+    # evaluation.
     # -----------------------------------------------------
 
     reference_samples = (
         get_reference_samples(
-            exclude_sample_id=sample_id
+            experiment_id=
+                resolved_experiment_id,
+
+            exclude_sample_id=
+                sample_id,
         )
     )
 
+    if not reference_samples:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "No reference samples are available "
+                "in the selected experiment."
+            ),
+        )
+
     prediction = predictor.predict(
         sample,
-        reference_samples
+        reference_samples,
     )
 
     updated_sample = save_prediction(
@@ -733,14 +1142,14 @@ async def predict_dataset_sample(
             prediction[
                 "evaluation"
             ]
-        )
+        ),
     )
 
     if updated_sample is None:
 
         raise HTTPException(
             status_code=404,
-            detail="Dataset sample not found."
+            detail="Dataset sample not found.",
         )
 
     return {
@@ -782,7 +1191,7 @@ async def predict_dataset_sample(
         "nearest_samples":
             prediction[
                 "nearest_samples"
-            ]
+            ],
     }
 
 
@@ -793,53 +1202,94 @@ async def predict_dataset_sample(
 @router.post(
     "/samples/predict-all"
 )
-async def predict_all_dataset_samples():
+async def predict_all_dataset_samples(
+    experiment_id: Optional[int] = None,
+):
 
-    samples = get_samples()
+    resolved_experiment_id = (
+        _resolve_experiment_id(
+            experiment_id
+        )
+    )
+
+    samples = get_samples(
+        experiment_id=
+            resolved_experiment_id
+    )
 
     labeled_samples = [
         sample
         for sample in samples
         if sample["position_id"] is not None
+        and sample.get("features") is not None
     ]
 
     if not labeled_samples:
 
         return {
             "success": True,
-            "total_samples": len(samples),
-            "evaluated_samples": 0,
-            "skipped_samples": len(samples),
-            "correct_predictions": 0,
-            "incorrect_predictions": 0,
-            "accuracy": None
+
+            "experiment_id":
+                resolved_experiment_id,
+
+            "total_samples":
+                len(samples),
+
+            "evaluated_samples":
+                0,
+
+            "skipped_samples":
+                len(samples),
+
+            "correct_predictions":
+                0,
+
+            "incorrect_predictions":
+                0,
+
+            "accuracy":
+                None,
+
+            "results":
+                [],
         }
 
     correct_predictions = 0
+
     incorrect_predictions = 0
+
     skipped_samples = 0
 
     results = []
 
     # -----------------------------------------------------
-    # Leave-one-out prediction
+    # Leave-one-out prediction.
     #
-    # Each sample is excluded from its own reference set.
-    # This is the same evaluation methodology used by the
-    # offline export script and baseline evaluation.
+    # Every sample uses ONLY reference samples from the
+    # selected experiment.
     # -----------------------------------------------------
 
     for sample in labeled_samples:
 
         reference_samples = (
             get_reference_samples(
-                exclude_sample_id=sample["id"]
+                experiment_id=
+                    resolved_experiment_id,
+
+                exclude_sample_id=
+                    sample["id"],
             )
         )
 
+        if not reference_samples:
+
+            skipped_samples += 1
+
+            continue
+
         prediction = predictor.predict(
             sample,
-            reference_samples
+            reference_samples,
         )
 
         evaluation = prediction[
@@ -858,7 +1308,7 @@ async def predict_all_dataset_samples():
 
             skipped_samples += 1
 
-        updated_sample = save_prediction(
+        save_prediction(
             sample_id=sample["id"],
 
             predicted_position_id=(
@@ -873,7 +1323,7 @@ async def predict_all_dataset_samples():
                 ]
             ),
 
-            evaluation=evaluation
+            evaluation=evaluation,
         )
 
         results.append({
@@ -905,7 +1355,7 @@ async def predict_all_dataset_samples():
                 ],
 
             "evaluation":
-                evaluation
+                evaluation,
         })
 
     evaluated_samples = (
@@ -924,6 +1374,9 @@ async def predict_all_dataset_samples():
 
     return {
         "success": True,
+
+        "experiment_id":
+            resolved_experiment_id,
 
         "total_samples":
             len(samples),
@@ -944,7 +1397,7 @@ async def predict_all_dataset_samples():
             accuracy,
 
         "results":
-            results
+            results,
     }
 
 
@@ -954,24 +1407,30 @@ async def predict_all_dataset_samples():
 
 def _csv_response(
     content: str,
-    filename: str
+    filename: str,
 ) -> StreamingResponse:
 
     return StreamingResponse(
         iter([content]),
+
         media_type="text/csv",
+
         headers={
             "Content-Disposition":
-                f'attachment; filename="{filename}"'
-        }
+                (
+                    f'attachment; '
+                    f'filename="{filename}"'
+                )
+        },
     )
 
 
 def _format_csv_value(
-    value
+    value,
 ) -> str:
 
     if value is None:
+
         return ""
 
     return str(value)
@@ -984,9 +1443,20 @@ def _format_csv_value(
 @router.get(
     "/export/features"
 )
-async def export_dataset_features():
+async def export_dataset_features(
+    experiment_id: Optional[int] = None,
+):
 
-    samples = get_samples()
+    resolved_experiment_id = (
+        _resolve_experiment_id(
+            experiment_id
+        )
+    )
+
+    samples = get_samples(
+        experiment_id=
+            resolved_experiment_id
+    )
 
     output = io.StringIO(
         newline=""
@@ -997,16 +1467,29 @@ async def export_dataset_features():
     )
 
     headers = [
+        "experiment_id",
+
         "sample_id",
+
         "sample_code",
+
         "timestamp",
+
+        "recording_filename",
+
         "position_id",
+
         "position_name",
+
         "target_presence",
+
         "distance_cm",
+
         "remarks",
+
         "duration_seconds",
-        "sample_rate"
+
+        "sample_rate",
     ]
 
     headers.extend(
@@ -1017,48 +1500,65 @@ async def export_dataset_features():
         headers
     )
 
-    exported_rows = 0
-
     for sample in reversed(samples):
 
         row = [
+            resolved_experiment_id,
+
             sample["id"],
+
             sample["sample_code"],
+
             sample["timestamp"],
+
+            sample["recording_filename"],
+
             sample["position_id"],
+
             sample["position_name"],
+
             sample["target_presence"],
+
             sample["distance_cm"],
+
             sample["remarks"],
+
             sample["duration_seconds"],
-            sample["sample_rate"]
+
+            sample["sample_rate"],
         ]
 
-        features = sample[
-            "features"
-        ]
+        features = (
+            sample.get("features")
+            or {}
+        )
 
         for feature_name in FEATURE_NAMES:
 
             row.append(
                 features.get(
                     feature_name,
-                    0.0
+                    0.0,
                 )
             )
 
         writer.writerow(
             [
-                _format_csv_value(value)
+                _format_csv_value(
+                    value
+                )
                 for value in row
             ]
         )
 
-        exported_rows += 1
+    filename = (
+        f"dataset_features_"
+        f"EXP-{resolved_experiment_id:03d}.csv"
+    )
 
     return _csv_response(
         output.getvalue(),
-        "dataset_features.csv"
+        filename,
     )
 
 
@@ -1069,9 +1569,20 @@ async def export_dataset_features():
 @router.get(
     "/export/predictions"
 )
-async def export_dataset_predictions():
+async def export_dataset_predictions(
+    experiment_id: Optional[int] = None,
+):
 
-    samples = get_samples()
+    resolved_experiment_id = (
+        _resolve_experiment_id(
+            experiment_id
+        )
+    )
+
+    samples = get_samples(
+        experiment_id=
+            resolved_experiment_id
+    )
 
     output = io.StringIO(
         newline=""
@@ -1082,93 +1593,105 @@ async def export_dataset_predictions():
     )
 
     headers = [
+        "experiment_id",
+
         "sample_id",
+
         "sample_code",
+
         "timestamp",
 
         "ground_truth_position_id",
+
         "ground_truth_position_name",
 
         "predicted_position_id",
+
         "predicted_position_name",
 
         "confidence",
+
         "evaluation",
-        "prediction_timestamp"
+
+        "prediction_timestamp",
     ]
 
     for index in range(1, 6):
 
         headers.extend([
             f"nearest_{index}_sample_id",
+
             f"nearest_{index}_sample_code",
+
             f"nearest_{index}_position_name",
-            f"nearest_{index}_distance"
+
+            f"nearest_{index}_distance",
         ])
 
     writer.writerow(
         headers
     )
 
-    # -----------------------------------------------------
-    # Export predictions already stored in the database.
-    #
-    # If Predict All has not been run yet, prediction fields
-    # will be empty. This keeps the download faithful to
-    # the current dataset state.
-    # -----------------------------------------------------
-
-    exported_rows = 0
-
     for sample in reversed(samples):
 
         row = [
+            resolved_experiment_id,
+
             sample["id"],
+
             sample["sample_code"],
+
             sample["timestamp"],
 
             sample["position_id"],
+
             sample["position_name"],
 
             sample["predicted_position_id"],
+
             sample["predicted_position_name"],
 
             sample["prediction_confidence"],
-            sample["prediction_evaluation"],
-            sample["prediction_timestamp"]
-        ]
 
-        # -------------------------------------------------
-        # The database stores the final prediction but does
-        # not currently store the top-5 nearest neighbours.
-        #
-        # Recalculate them for export when a prediction
-        # exists, using the same leave-one-out procedure.
-        # -------------------------------------------------
+            sample["prediction_evaluation"],
+
+            sample["prediction_timestamp"],
+        ]
 
         nearest_samples = []
 
         if (
             sample["position_id"] is not None
-            and sample["predicted_position_id"] is not None
+            and
+            sample["predicted_position_id"]
+            is not None
+            and
+            sample.get("features") is not None
         ):
 
             reference_samples = (
                 get_reference_samples(
-                    exclude_sample_id=sample["id"]
+                    experiment_id=
+                        resolved_experiment_id,
+
+                    exclude_sample_id=
+                        sample["id"],
                 )
             )
 
-            prediction = predictor.predict(
-                sample,
-                reference_samples
-            )
+            if reference_samples:
 
-            nearest_samples = (
-                prediction[
-                    "nearest_samples"
-                ]
-            )
+                prediction = predictor.predict(
+                    sample,
+                    reference_samples,
+                )
+
+                nearest_samples = (
+                    prediction.get(
+                        "nearest_samples",
+                        [],
+                    )
+                )
 
         for index in range(5):
 
@@ -1184,15 +1707,18 @@ async def export_dataset_predictions():
                     nearest.get(
                         "sample_id"
                     ),
+
                     nearest.get(
                         "sample_code"
                     ),
+
                     nearest.get(
                         "position_name"
                     ),
+
                     nearest.get(
                         "distance"
-                    )
+                    ),
                 ])
 
             else:
@@ -1201,21 +1727,26 @@ async def export_dataset_predictions():
                     "",
                     "",
                     "",
-                    ""
+                    "",
                 ])
 
         writer.writerow(
             [
-                _format_csv_value(value)
+                _format_csv_value(
+                    value
+                )
                 for value in row
             ]
         )
 
-        exported_rows += 1
+    filename = (
+        f"dataset_predictions_"
+        f"EXP-{resolved_experiment_id:03d}.csv"
+    )
 
     return _csv_response(
         output.getvalue(),
-        "dataset_predictions.csv"
+        filename,
     )
 
 
@@ -1225,12 +1756,24 @@ async def export_dataset_predictions():
 
 @router.get(
     "/summary",
-    response_model=DatasetSummaryResponse
+    response_model=DatasetSummaryResponse,
 )
-async def dataset_summary():
+async def dataset_summary(
+    experiment_id: Optional[int] = None,
+):
+
+    resolved_experiment_id = (
+        _resolve_experiment_id(
+            experiment_id
+        )
+    )
 
     return {
         "success": True,
+
         "summary":
-            get_summary()
+            get_summary(
+                experiment_id=
+                    resolved_experiment_id
+            ),
     }

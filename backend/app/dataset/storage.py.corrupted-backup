@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 import json
 import sqlite3
 from datetime import datetime, timezone
@@ -769,6 +769,158 @@ def create_sample(
 
     finally:
         conn.close()
+    recording_filename: Optional[str] = None,
+    position_id: Optional[int] = None,
+    target_presence: Optional[str] = None,
+    distance_cm: Optional[float] = None,
+    remarks: Optional[str] = None,
+    features: Optional[dict] = None,
+    duration_seconds: Optional[float] = None,
+    sample_rate: Optional[int] = None,
+    experiment_id: int = 1,
+):
+    """
+    Create a sample inside an experiment.
+
+    IMPORTANT:
+
+    position_id must belong to the selected experiment.
+
+    This prevents samples from EXP-002 accidentally using
+    positions belonging to EXP-001.
+    """
+
+    ensure_experiment_exists(
+        experiment_id
+    )
+
+    conn = get_connection()
+
+    try:
+
+        # ----------------------------------------------------
+        # Verify position belongs to experiment.
+        # ----------------------------------------------------
+
+        if position_id is not None:
+
+            position = conn.execute(
+                """
+                SELECT id
+                FROM positions
+                WHERE id = ?
+                  AND experiment_id = ?
+                """,
+                (
+                    position_id,
+                    experiment_id,
+                ),
+            ).fetchone()
+
+            if position is None:
+
+                raise ValueError(
+                    f"Position {position_id} does not belong "
+                    f"to experiment {experiment_id}."
+                )
+
+        # ----------------------------------------------------
+        # Timestamp
+        # ----------------------------------------------------
+
+        timestamp = datetime.now(
+            timezone.utc
+        ).isoformat()
+
+        # ----------------------------------------------------
+        # Serialize features.
+        # ----------------------------------------------------
+
+        features_json = None
+
+        if features is not None:
+
+            features_json = json.dumps(
+                features
+            )
+
+        # ----------------------------------------------------
+        # Insert sample.
+        # ----------------------------------------------------
+
+        cursor = conn.execute(
+            """
+            INSERT INTO samples (
+                timestamp,
+                recording_filename,
+                position_id,
+                target_presence,
+                distance_cm,
+                remarks,
+                features,
+                duration_seconds,
+                sample_rate,
+                experiment_id
+            )
+            VALUES (
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?
+            )
+            """,
+            (
+                timestamp,
+                recording_filename,
+                position_id,
+                target_presence,
+                distance_cm,
+                remarks,
+                features_json,
+                duration_seconds,
+                sample_rate,
+                experiment_id,
+            ),
+        )
+
+        sample_id = cursor.lastrowid
+
+        # ----------------------------------------------------
+        # Generate sample code.
+        # ----------------------------------------------------
+
+        sample_code = _generate_sample_code(
+            sample_id
+        )
+
+        conn.execute(
+            """
+            UPDATE samples
+            SET sample_code = ?
+            WHERE id = ?
+            """,
+            (
+                sample_code,
+                sample_id,
+            ),
+        )
+
+        conn.commit()
+
+        return get_sample(
+            sample_id,
+            experiment_id=experiment_id,
+        )
+
+    finally:
+        conn.close()
+
 
 # ============================================================
 # SAMPLE RETRIEVAL
