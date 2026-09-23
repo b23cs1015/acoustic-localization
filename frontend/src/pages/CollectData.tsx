@@ -994,31 +994,27 @@ export default function CollectData() {
       return;
     }
 
-    if (
-      targetPresence === "yes"
-    ) {
-      if (
-        selectedPositionId === null
-      ) {
-        setError(
-          "Select the position where the target is located."
-        );
-        return;
-      }
+    if (selectedPositionId === null) {
+  setError(
+    "Select the position for this recording."
+  );
+  return;
+}
 
-      const numericDistance = Number(distanceCm);
+if (targetPresence === "yes") {
+  const numericDistance = Number(distanceCm);
 
-      if (
-        !distanceCm ||
-        !Number.isFinite(numericDistance) ||
-        numericDistance <= 0
-      ) {
-        setError(
-          "Enter a valid distance greater than 0 cm."
-        );
-        return;
-      }
-    }
+  if (
+    !distanceCm ||
+    !Number.isFinite(numericDistance) ||
+    numericDistance <= 0
+  ) {
+    setError(
+      "Enter a valid distance greater than 0 cm."
+    );
+    return;
+  }
+}
 
     const experimentId =
       selectedExperimentId;
@@ -1088,9 +1084,7 @@ export default function CollectData() {
               experimentId,
 
             positionId:
-              targetPresence === "yes"
-                ? selectedPositionId
-                : null,
+              selectedPositionId,
 
             targetPresence,
 
@@ -1548,25 +1542,31 @@ export default function CollectData() {
       return;
     }
 
-        if (
-      editing.targetPresence ===
-        "yes"
-    ) {
-      const numericDistance =
-        Number(editing.distanceCm);
+        if (editing.positionId === null) {
+  setError(
+    "Select the position for this recording."
+  );
+  return;
+}
 
-      if (
-        !editing.distanceCm ||
-        !Number.isFinite(numericDistance) ||
-        numericDistance <= 0
-      ) {
-        setError(
-          "Enter a valid distance greater than 0 cm."
-        );
-        return;
-      }
-    }
+if (
+  editing.targetPresence ===
+  "yes"
+) {
+  const numericDistance =
+    Number(editing.distanceCm);
 
+  if (
+    !editing.distanceCm ||
+    !Number.isFinite(numericDistance) ||
+    numericDistance <= 0
+  ) {
+    setError(
+      "Enter a valid distance greater than 0 cm."
+    );
+    return;
+  }
+}
 
     try {
       setError(null);
@@ -1577,10 +1577,7 @@ export default function CollectData() {
           editing.sample.id,
           {
             positionId:
-              editing.targetPresence ===
-              "yes"
-                ? editing.positionId
-                : null,
+              editing.positionId,
 
             targetPresence:
               editing.targetPresence,
@@ -3313,10 +3310,7 @@ export default function CollectData() {
                         : current
                   )
                 }
-                disabled={
-                  editing.targetPresence !==
-                  "yes"
-                }
+                
               >
 
                 <option value="">

@@ -964,7 +964,7 @@ Keep this terminal running.
 
 Open a third terminal:
 
-cloudflared tunnel --protocol http2 --url http://localhost:5173
+cloudflared tunnel --protocol http2 --url http://localhost:5173cloudflared tunnel --protocol http2 --url http://localhost:5173
 
 Cloudflare will generate an HTTPS URL similar to:
 
@@ -991,3 +991,5 @@ Important
 The Cloudflare URL is temporary and changes whenever the tunnel is restarted. Do not hard-code the generated trycloudflare.com URL in the README.
 
 The frontend API configuration should point to the backend API URL, while the Cloudflare frontend URL is used to access the application from a mobile device.
+
+
