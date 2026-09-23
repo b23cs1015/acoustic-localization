@@ -82,12 +82,6 @@ const TARGET_OPTIONS:
   ];
 
 
-const DISTANCE_OPTIONS = [
-  15,
-  30,
-  45,
-];
-
 
 const FEATURE_LABELS:
   Record<string, string> = {
@@ -381,7 +375,7 @@ export default function CollectData() {
   const [
     distanceCm,
     setDistanceCm,
-  ] = useState("15");
+  ] = useState("");
 
   const [
     remarks,
@@ -1012,9 +1006,15 @@ export default function CollectData() {
         return;
       }
 
-      if (!distanceCm) {
+      const numericDistance = Number(distanceCm);
+
+      if (
+        !distanceCm ||
+        !Number.isFinite(numericDistance) ||
+        numericDistance <= 0
+      ) {
         setError(
-          "Select a distance for a present target."
+          "Enter a valid distance greater than 0 cm."
         );
         return;
       }
@@ -1548,27 +1548,25 @@ export default function CollectData() {
       return;
     }
 
-    if (
+        if (
       editing.targetPresence ===
-        "yes" &&
-      editing.positionId === null
+        "yes"
     ) {
-      setError(
-        "Select a position for a present target."
-      );
-      return;
+      const numericDistance =
+        Number(editing.distanceCm);
+
+      if (
+        !editing.distanceCm ||
+        !Number.isFinite(numericDistance) ||
+        numericDistance <= 0
+      ) {
+        setError(
+          "Enter a valid distance greater than 0 cm."
+        );
+        return;
+      }
     }
 
-    if (
-      editing.targetPresence ===
-        "yes" &&
-      !editing.distanceCm
-    ) {
-      setError(
-        "Select a distance for a present target."
-      );
-      return;
-    }
 
     try {
       setError(null);
@@ -1712,7 +1710,7 @@ export default function CollectData() {
      TARGET CHANGE
      ========================================================== */
 
-  function handleTargetChange(
+    function handleTargetChange(
     value: TargetPresence
   ) {
     setTargetPresence(
@@ -1723,10 +1721,6 @@ export default function CollectData() {
       value !== "yes"
     ) {
       setDistanceCm("");
-    } else if (
-      !distanceCm
-    ) {
-      setDistanceCm("15");
     }
   }
 
@@ -2247,34 +2241,25 @@ export default function CollectData() {
 
               <div className="distance-options">
 
-                {DISTANCE_OPTIONS.map(
-                  distance => (
-                    <button
-                      key={
-                        distance
-                      }
-                      type="button"
-                      className={
-                        distanceCm ===
-                        String(distance)
-                          ? "active"
-                          : ""
-                      }
-                      onClick={() =>
-                        setDistanceCm(
-                          String(distance)
-                        )
-                      }
-                      disabled={
-                        isRecording ||
-                        isSaving ||
-                        predictingAll
-                      }
-                    >
-                      {distance} cm
-                    </button>
-                  )
-                )}
+                <div className="distance-input-wrapper">
+  <input
+    type="number"
+    min="0.1"
+    step="any"
+    value={distanceCm}
+    onChange={event =>
+      setDistanceCm(event.target.value)
+    }
+    placeholder="e.g. 27.5"
+    disabled={
+      isRecording ||
+      isSaving ||
+      predictingAll
+    }
+  />
+
+  <span>cm</span>
+</div>
 
               </div>
 
@@ -3392,8 +3377,7 @@ export default function CollectData() {
                                   distanceCm:
                                     option.value ===
                                     "yes"
-                                      ? current.distanceCm ||
-                                        "15"
+                                      ? current.distanceCm
                                       : "",
                                 }
                               : current
@@ -3420,45 +3404,33 @@ export default function CollectData() {
                   Distance
                 </label>
 
-                <div className="distance-options">
+                                <div className="distance-options">
 
-                  {DISTANCE_OPTIONS.map(
-                    distance => (
-                      <button
-                        key={
-                          distance
-                        }
-                        type="button"
-                        className={
-                          editing.distanceCm ===
-                          String(
-                            distance
-                          )
-                            ? "active"
-                            : ""
-                        }
-                        onClick={() =>
-                          setEditing(
-                            current =>
-                              current
-                                ? {
-                                    ...current,
-                                    distanceCm:
-                                      String(
-                                        distance
-                                      ),
-                                  }
-                                : current
-                          )
-                        }
-                      >
-                        {distance} cm
-                      </button>
-                    )
-                  )}
+                  <div className="distance-input-wrapper">
+                    <input
+                      type="number"
+                      min="0.1"
+                      step="any"
+                      value={editing.distanceCm}
+                      onChange={event =>
+                        setEditing(
+                          current =>
+                            current
+                              ? {
+                                  ...current,
+                                  distanceCm:
+                                    event.target.value,
+                                }
+                              : current
+                        )
+                      }
+                      placeholder="e.g. 27.5"
+                    />
+
+                    <span>cm</span>
+                  </div>
 
                 </div>
-
               </div>
             )}
 

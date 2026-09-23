@@ -6,6 +6,7 @@ import os
 import uuid
 from pathlib import Path
 from typing import Optional
+import math
 
 from fastapi import (
     APIRouter,
@@ -293,32 +294,30 @@ async def create_dataset_sample(
 
     # -----------------------------------------------------
     # Validate distance.
+    #
+    # Distance is intentionally arbitrary.
+    #
+    # Any finite positive value in centimetres is accepted.
+    # Examples:
+    #   15
+    #   27.5
+    #   32.75
+    #   45
+    #   100
     # -----------------------------------------------------
 
     if distance_cm is not None:
 
-        if distance_cm < 0:
+        if (
+            not math.isfinite(distance_cm)
+            or distance_cm <= 0
+        ):
 
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    "Distance cannot be negative."
-                ),
-            )
-
-        allowed_distances = {
-            15.0,
-            30.0,
-            45.0,
-        }
-
-        if distance_cm not in allowed_distances:
-
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "Distance must be "
-                    "15, 30, or 45 cm."
+                    "distance_cm must be a finite "
+                    "value greater than 0 cm."
                 ),
             )
 
@@ -784,30 +783,22 @@ async def dataset_update_sample(
 
     # -----------------------------------------------------
     # Validate distance.
+    #
+    # Any finite positive distance in centimetres is valid.
     # -----------------------------------------------------
 
     if distance_cm is not None:
 
-        if distance_cm < 0:
+        if (
+            not math.isfinite(distance_cm)
+            or distance_cm <= 0
+        ):
 
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    "Distance cannot be negative."
-                ),
-            )
-
-        if distance_cm not in {
-            15.0,
-            30.0,
-            45.0,
-        }:
-
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "Distance must be "
-                    "15, 30, or 45 cm."
+                    "distance_cm must be a finite "
+                    "value greater than 0 cm."
                 ),
             )
 
