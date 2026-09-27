@@ -16,6 +16,8 @@ export interface PredictionResult {
 
   confidence: number | null;
 
+  predicted_distance_cm: number | null;
+
   features: Record<string, number>;
 
   duration_seconds: number;
@@ -61,25 +63,21 @@ export interface PositionsResponse {
 
 export interface Measurement {
   id: number;
-
   timestamp: string;
-
   recording_filename: string;
 
   prediction: string;
-
   confidence: number | null;
 
-  duration_seconds: number;
+  predicted_distance_cm: number | null;
 
+  duration_seconds: number;
   sample_rate: number;
 
   features: Record<string, number>;
 
   position_id: number | null;
-
   position_number: number | null;
-
   position_name: string | null;
 
   object_between: string | null;
@@ -89,7 +87,6 @@ export interface Measurement {
   notes: string | null;
 
   feedback_correct: boolean | null;
-
   feedback_timestamp: string | null;
 
   discarded: boolean;

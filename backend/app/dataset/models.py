@@ -142,6 +142,7 @@ class NearestDatasetSample(BaseModel):
 
 
 class DatasetPredictionResponse(BaseModel):
+
     success: bool
 
     sample_id: int
@@ -151,6 +152,22 @@ class DatasetPredictionResponse(BaseModel):
     predicted_position_name: Optional[str] = None
 
     confidence: Optional[float] = None
+
+    # -----------------------------------------------------
+    # DISTANCE REGRESSION
+    # -----------------------------------------------------
+
+    predicted_distance_cm: Optional[float] = None
+
+    # Actual experimental distance
+    distance_cm: Optional[float] = None
+
+    # Absolute prediction error when ground truth exists
+    distance_error_cm: Optional[float] = None
+
+    # -----------------------------------------------------
+    # GROUND TRUTH POSITION
+    # -----------------------------------------------------
 
     ground_truth_position_id: Optional[int] = None
 

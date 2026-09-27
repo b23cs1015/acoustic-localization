@@ -24,6 +24,21 @@ interface Props {
   refreshKey: number;
 }
 
+function formatNumber(
+  value: unknown,
+  decimals = 2
+): string {
+
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value)
+  ) {
+    return "—";
+  }
+
+  return value.toFixed(decimals);
+}
+
 
 export default function MeasurementHistory({
   refreshKey
@@ -808,6 +823,20 @@ export default function MeasurementHistory({
 
                         </div>
 
+                        <div>
+
+                          <span>
+                            Estimated Distance
+                          </span>
+
+                          <strong>
+    {typeof measurement.predicted_distance_cm === "number"
+      ? `${measurement.predicted_distance_cm.toFixed(1)} cm`
+      : "—"}
+  </strong>
+
+                        </div>
+
                       </div>
 
 
@@ -835,11 +864,10 @@ export default function MeasurementHistory({
                       </span>
 
                       <strong>
-                        {measurement.duration_seconds.toFixed(
-                          2
-                        )}{" "}
-                        s
-                      </strong>
+  {typeof measurement.duration_seconds === "number"
+    ? `${measurement.duration_seconds.toFixed(2)} s`
+    : "—"}
+</strong>
 
                     </div>
 
@@ -868,12 +896,12 @@ export default function MeasurementHistory({
                         </span>
 
                         <strong>
-                          {(
-                            measurement.confidence *
-                            100
-                          ).toFixed(1)}
-                          %
-                        </strong>
+  {typeof measurement.confidence === "number"
+    ? `${(
+        measurement.confidence * 100
+      ).toFixed(1)}%`
+    : "—"}
+</strong>
 
                       </div>
                     )}
@@ -909,9 +937,9 @@ export default function MeasurementHistory({
                             </span>
 
                             <strong>
-                              {value.toFixed(
-                                4
-                              )}
+                              {typeof value === "number"
+  ? value.toFixed(4)
+  : "—"}
                             </strong>
 
                           </div>

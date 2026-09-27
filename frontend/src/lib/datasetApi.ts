@@ -191,15 +191,47 @@ export interface NearestSample {
 export interface PredictionResult {
   sample_id?: number | null;
 
+  /* ============================================================
+     POSITION PREDICTION
+     ============================================================ */
+
   predicted_position_id?: number | null;
 
   predicted_position_name?: string | null;
 
   confidence?: number | null;
 
+  /* ============================================================
+     DISTANCE PREDICTION
+     ============================================================ */
+
+  /**
+   * Distance predicted by the Extra Trees regression model.
+   * Unit: centimetres.
+   */
+  predicted_distance_cm?: number | null;
+
+  /**
+   * Ground-truth distance entered during data collection.
+   */
+  distance_cm?: number | null;
+
+  /**
+   * Absolute distance prediction error in centimetres.
+   */
+  distance_error_cm?: number | null;
+
+  /* ============================================================
+     GROUND TRUTH POSITION
+     ============================================================ */
+
   ground_truth_position_id?: number | null;
 
   ground_truth_position_name?: string | null;
+
+  /* ============================================================
+     POSITION EVALUATION
+     ============================================================ */
 
   evaluation?:
     | "correct"
@@ -207,6 +239,10 @@ export interface PredictionResult {
     | "not_evaluable"
     | string
     | null;
+
+  /* ============================================================
+     KNN REFERENCE SAMPLES
+     ============================================================ */
 
   nearest_samples: NearestSample[];
 

@@ -33,6 +33,10 @@ from ..ml.predictor import (
     Predictor,
 )
 
+from ..ml.distance_predictor import (
+    DistancePredictor,
+)
+
 from ..schemas import (
     AnalyzeResponse,
     PredictionResult,
@@ -65,6 +69,10 @@ router = APIRouter(
 
 predictor = Predictor()
 
+# Separate regression model for distance estimation.
+# The existing position KNN predictor remains unchanged.
+distance_predictor = DistancePredictor()
+
 
 # =========================================================
 # HEALTH
@@ -83,6 +91,28 @@ async def health():
 # =========================================================
 # ANALYTICS DASHBOARD
 # =========================================================
+
+
+@router.get(
+    "/analytics",
+)
+async def analytics():
+
+    return {
+        "success": True,
+
+        "summary": get_summary(),
+
+        **get_feature_data(),
+
+        "position": get_position_analysis(),
+
+        "distance": get_distance_analysis(),
+
+        "object": get_object_analysis(),
+
+        "pca": get_pca_analysis(),
+    }
 
 
 @router.get(
@@ -254,6 +284,34 @@ async def analyze_audio(
         )
 
         # ---------------------------------------------
+        # Distance prediction
+        # ---------------------------------------------
+        #
+        # This is a supervised regression estimate based
+        # on the 12 acoustic features and EXP-013 training
+        # data. It is separate from position localization.
+        # ---------------------------------------------
+
+        try:
+
+            predicted_distance_cm = (
+                distance_predictor.predict(
+                    features
+                )
+            )
+
+        except Exception as distance_error:
+
+            # Keep the position measurement working even
+            # if the optional distance model is unavailable.
+            predicted_distance_cm = None
+
+            print(
+                "Distance prediction unavailable:",
+                distance_error,
+            )
+
+        # ---------------------------------------------
         # Generate unique recording number
         # ---------------------------------------------
 
@@ -298,6 +356,9 @@ async def analyze_audio(
             duration_seconds=duration,
             sample_rate=sample_rate,
             features=features,
+            predicted_distance_cm=(
+                predicted_distance_cm
+            ),
         )
 
         # ---------------------------------------------
@@ -307,6 +368,9 @@ async def analyze_audio(
         result = PredictionResult(
             prediction=prediction,
             confidence=confidence,
+            predicted_distance_cm=(
+                predicted_distance_cm
+            ),
             features=features,
             duration_seconds=duration,
             sample_rate=sample_rate,

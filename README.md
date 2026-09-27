@@ -964,8 +964,7 @@ Keep this terminal running.
 
 Open a third terminal:
 
-cloudflared tunnel --protocol http2 --url http://localhost:5173cloudflared tunnel --protocol http2 --url http://localhost:5173
-
+cloudflared tunnel --protocol http2 --url http://localhost:5173
 Cloudflare will generate an HTTPS URL similar to:
 
 https://xxxx-xxxx.trycloudflare.com

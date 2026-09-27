@@ -2561,14 +2561,16 @@ if (
 
             <div>
               <strong>
-                Run position prediction
+                Run position & distance prediction
               </strong>
 
               <p>
                 Evaluate every labeled recording
                 from the selected experiment using
-                leave-one-out KNN and save the
-                predictions to that experiment.
+                leave-one-out KNN for spatial
+                localization and Extra Trees
+                regression for acoustic distance
+                estimation.
               </p>
             </div>
 
@@ -2831,6 +2833,10 @@ if (
 
           <div className="prediction-main">
 
+            {/* =================================================
+                POSITION PREDICTION
+                ================================================= */}
+
             <div className="prediction-result">
               <span>
                 Predicted position
@@ -2894,6 +2900,84 @@ if (
                 }
               </strong>
             </div>
+
+
+            {/* =================================================
+                DISTANCE PREDICTION
+                ================================================= */}
+
+            {
+              prediction.predicted_distance_cm !== null &&
+              prediction.predicted_distance_cm !== undefined && (
+                <div className="prediction-result">
+                  <span>
+                    Estimated distance
+                  </span>
+
+                  <strong>
+                    {
+                      formatDistance(
+                        prediction.predicted_distance_cm
+                      )
+                    }
+                    {" "}
+                    cm
+                  </strong>
+                </div>
+              )
+            }
+
+
+            {/* =================================================
+                DISTANCE GROUND TRUTH
+                ================================================= */}
+
+            {
+              prediction.distance_cm !== null &&
+              prediction.distance_cm !== undefined && (
+                <div className="prediction-result">
+                  <span>
+                    Ground-truth distance
+                  </span>
+
+                  <strong>
+                    {
+                      formatDistance(
+                        prediction.distance_cm
+                      )
+                    }
+                    {" "}
+                    cm
+                  </strong>
+                </div>
+              )
+            }
+
+
+            {/* =================================================
+                DISTANCE ERROR
+                ================================================= */}
+
+            {
+              prediction.distance_error_cm !== null &&
+              prediction.distance_error_cm !== undefined && (
+                <div className="prediction-result">
+                  <span>
+                    Distance error
+                  </span>
+
+                  <strong>
+                    {
+                      formatDistance(
+                        prediction.distance_error_cm
+                      )
+                    }
+                    {" "}
+                    cm
+                  </strong>
+                </div>
+              )
+            }
 
           </div>
 

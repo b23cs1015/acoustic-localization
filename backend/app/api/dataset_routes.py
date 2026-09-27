@@ -40,6 +40,10 @@ from ..dataset.predictor import (
     FEATURE_NAMES,
 )
 
+from ..ml.distance_predictor import (
+    DistancePredictor,
+)
+
 from ..dataset.storage import (
     create_position,
     create_sample,
@@ -65,7 +69,7 @@ router = APIRouter(
 
 
 predictor = DatasetPredictor()
-
+distance_predictor = DistancePredictor()
 
 # =========================================================
 # DEFAULT EXPERIMENT
@@ -1053,7 +1057,6 @@ async def dataset_sample_audio(
 )
 async def predict_dataset_sample(
     sample_id: int,
-
     experiment_id: Optional[int] = None,
 ):
 
@@ -1080,13 +1083,7 @@ async def predict_dataset_sample(
         )
 
     # -----------------------------------------------------
-    # IMPORTANT:
-    #
-    # Reference samples are restricted to the same
-    # experiment.
-    #
-    # The current sample is excluded for leave-one-out
-    # evaluation.
+    # POSITION PREDICTION
     # -----------------------------------------------------
 
     reference_samples = (
@@ -1113,6 +1110,32 @@ async def predict_dataset_sample(
         sample,
         reference_samples,
     )
+
+    # Resolve the predicted position name explicitly. Older
+    # reference queries may return position_id without the
+    # joined position_name field.
+    predicted_position_id = prediction.get(
+        "predicted_position_id"
+    )
+
+    if (
+        predicted_position_id is not None
+        and not prediction.get("predicted_position_name")
+    ):
+
+        predicted_position = get_position(
+            int(predicted_position_id),
+            experiment_id=resolved_experiment_id,
+        )
+
+        if predicted_position is not None:
+            prediction["predicted_position_name"] = (
+                predicted_position.get("name")
+            )
+
+    # -----------------------------------------------------
+    # SAVE POSITION PREDICTION
+    # -----------------------------------------------------
 
     updated_sample = save_prediction(
         sample_id=sample_id,
@@ -1143,12 +1166,77 @@ async def predict_dataset_sample(
             detail="Dataset sample not found.",
         )
 
+    # -----------------------------------------------------
+    # DISTANCE REGRESSION
+    #
+    # The deployed distance model is trained on EXP-013
+    # target-present recordings and predicts distance from
+    # the same 12 acoustic features used by the baseline.
+    # It is independent of the position KNN prediction.
+    #
+    # We only predict distance when target presence is
+    # explicitly "yes" because the training data contains
+    # target-present samples with known distances.
+    # -----------------------------------------------------
+
+    predicted_distance_cm = None
+    distance_error_cm = None
+
+    if (
+        sample.get("target_presence")
+        == "yes"
+        and sample.get("features")
+    ):
+
+        try:
+
+            predicted_distance_cm = (
+                distance_predictor.predict(
+                    sample["features"],
+                    exclude_sample_id=sample_id,
+                )
+            )
+
+            actual_distance_cm = (
+                sample.get(
+                    "distance_cm"
+                )
+            )
+
+            if (
+                predicted_distance_cm is not None
+                and actual_distance_cm is not None
+            ):
+
+                distance_error_cm = abs(
+                    float(
+                        predicted_distance_cm
+                    )
+                    -
+                    float(
+                        actual_distance_cm
+                    )
+                )
+
+        except Exception as error:
+
+            # Distance failure must not break the existing
+            # position prediction pipeline.
+            print(
+                "Distance prediction unavailable:",
+                error,
+            )
+
+            predicted_distance_cm = None
+            distance_error_cm = None
+
     return {
         "success": True,
 
         "sample_id":
             sample_id,
 
+        # Position prediction
         "predicted_position_id":
             prediction[
                 "predicted_position_id"
@@ -1164,6 +1252,19 @@ async def predict_dataset_sample(
                 "confidence"
             ],
 
+        # Distance prediction
+        "predicted_distance_cm":
+            predicted_distance_cm,
+
+        "distance_cm":
+            sample.get(
+                "distance_cm"
+            ),
+
+        "distance_error_cm":
+            distance_error_cm,
+
+        # Ground-truth position
         "ground_truth_position_id":
             sample[
                 "position_id"
@@ -1179,6 +1280,7 @@ async def predict_dataset_sample(
                 "evaluation"
             ],
 
+        # KNN nearest references
         "nearest_samples":
             prediction[
                 "nearest_samples"
@@ -1241,23 +1343,23 @@ async def predict_all_dataset_samples(
             "accuracy":
                 None,
 
+            "distance_predictions":
+                0,
+
             "results":
                 [],
         }
 
     correct_predictions = 0
-
     incorrect_predictions = 0
-
     skipped_samples = 0
-
+    distance_predictions = 0
     results = []
 
     # -----------------------------------------------------
     # Leave-one-out prediction.
-    #
     # Every sample uses ONLY reference samples from the
-    # selected experiment.
+    # selected experiment for position localization.
     # -----------------------------------------------------
 
     for sample in labeled_samples:
@@ -1275,28 +1377,48 @@ async def predict_all_dataset_samples(
         if not reference_samples:
 
             skipped_samples += 1
-
             continue
+
+        # -------------------------------------------------
+        # POSITION PREDICTION
+        # -------------------------------------------------
 
         prediction = predictor.predict(
             sample,
             reference_samples,
         )
 
+        # Resolve the predicted position name explicitly.
+        predicted_position_id = prediction.get(
+            "predicted_position_id"
+        )
+
+        if (
+            predicted_position_id is not None
+            and not prediction.get("predicted_position_name")
+        ):
+
+            predicted_position = get_position(
+                int(predicted_position_id),
+                experiment_id=resolved_experiment_id,
+            )
+
+            if predicted_position is not None:
+                prediction["predicted_position_name"] = (
+                    predicted_position.get("name")
+                )
+
         evaluation = prediction[
             "evaluation"
         ]
 
         if evaluation == "correct":
-
             correct_predictions += 1
 
         elif evaluation == "incorrect":
-
             incorrect_predictions += 1
 
         else:
-
             skipped_samples += 1
 
         save_prediction(
@@ -1316,6 +1438,62 @@ async def predict_all_dataset_samples(
 
             evaluation=evaluation,
         )
+
+        # -------------------------------------------------
+        # DISTANCE PREDICTION
+        # -------------------------------------------------
+
+        predicted_distance_cm = None
+        distance_error_cm = None
+
+        if (
+            sample.get("target_presence")
+            == "yes"
+            and sample.get("features")
+        ):
+
+            try:
+
+                predicted_distance_cm = (
+                    distance_predictor.predict(
+                        sample["features"],
+                        exclude_sample_id=sample["id"],
+                    )
+                )
+
+                actual_distance_cm = (
+                    sample.get(
+                        "distance_cm"
+                    )
+                )
+
+                if (
+                    predicted_distance_cm is not None
+                    and actual_distance_cm is not None
+                ):
+
+                    distance_error_cm = abs(
+                        float(
+                            predicted_distance_cm
+                        )
+                        -
+                        float(
+                            actual_distance_cm
+                        )
+                    )
+
+                    distance_predictions += 1
+
+            except Exception as error:
+
+                print(
+                    "Distance prediction unavailable "
+                    f"for sample {sample['id']}: ",
+                    error,
+                )
+
+                predicted_distance_cm = None
+                distance_error_cm = None
 
         results.append({
             "sample_id":
@@ -1347,6 +1525,17 @@ async def predict_all_dataset_samples(
 
             "evaluation":
                 evaluation,
+
+            "distance_cm":
+                sample.get(
+                    "distance_cm"
+                ),
+
+            "predicted_distance_cm":
+                predicted_distance_cm,
+
+            "distance_error_cm":
+                distance_error_cm,
         })
 
     evaluated_samples = (
@@ -1386,6 +1575,9 @@ async def predict_all_dataset_samples(
 
         "accuracy":
             accuracy,
+
+        "distance_predictions":
+            distance_predictions,
 
         "results":
             results,

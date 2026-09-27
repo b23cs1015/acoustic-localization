@@ -162,6 +162,8 @@ def initialize_database() -> None:
 
                 "distance_cm": "REAL",
 
+                "predicted_distance_cm": "REAL",
+
                 "notes": "TEXT",
 
                 "feedback_correct": "INTEGER",
@@ -458,6 +460,7 @@ def save_measurement(
     recording_filename: str,
     prediction: str,
     confidence: Optional[float],
+    predicted_distance_cm: Optional[float],
     duration_seconds: float,
     sample_rate: int,
     features: Dict[str, float],
@@ -481,18 +484,20 @@ def save_measurement(
                 recording_filename,
                 prediction,
                 confidence,
+                predicted_distance_cm,
                 duration_seconds,
                 sample_rate,
                 features,
                 discarded
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
             """,
             (
                 timestamp,
                 recording_filename,
                 prediction,
                 confidence,
+                predicted_distance_cm,
                 duration_seconds,
                 sample_rate,
                 features_json,
@@ -573,6 +578,8 @@ def get_measurements(
 
             m.confidence,
 
+            m.predicted_distance_cm,
+
             m.duration_seconds,
 
             m.sample_rate,
@@ -644,6 +651,8 @@ def get_measurement(
                 m.prediction,
 
                 m.confidence,
+
+                m.predicted_distance_cm,
 
                 m.duration_seconds,
 
