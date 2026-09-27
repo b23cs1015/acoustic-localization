@@ -1,181 +1,199 @@
-# Acoustic Localization Using Smartphone Audio
+Acoustic Localization Using Smartphone Audio
 
-> **B.Tech Project (BTP) / Research Prototype**\
-> Smartphone-based acoustic sensing for spatial localization, target
-> detection, and distance estimation.
+B.Tech Project (BTP) / Research Prototype
+Smartphone-based acoustic sensing for spatial localization, target detection, and distance estimation.
 
-## 1. Project Overview
+1. Project Overview
 
-**Acoustic Localization** is a research prototype investigating whether
-a smartphone's own speaker and microphone can be used as an active
-acoustic sensing system to determine the spatial location of a nearby
-target/person.
+Acoustic Localization is a research prototype investigating whether a smartphone's own speaker and microphone can be used as an active acoustic sensing system to infer the location and distance of a nearby target.
+
+The project is being developed incrementally as an experimental research system rather than a production-ready localization product.
 
 The long-term pipeline is:
 
-``` text
 Smartphone
-    ↓
+   ↓
 Controlled acoustic chirp
-    ↓
+   ↓
 Speaker
-    ↓
+   ↓
 Acoustic propagation / reflection
-    ↓
+   ↓
 Microphone
-    ↓
+   ↓
 Audio preprocessing
-    ↓
+   ↓
 Acoustic feature / fingerprint extraction
-    ↓
-Target detection + distance estimation + spatial localization
-    ↓
+   ↓
+Target detection
+   ↓
+Distance estimation
+   ↓
+Spatial localization
+   ↓
 Final target location
-```
 
-The project is being developed incrementally as an experimental research
-system rather than a production-ready localization product.
+The current implementation has already established an end-to-end experimental platform for recording, feature extraction, position prediction, distance prediction, evaluation, and research-data export.
 
-## 2. Final Project Goal
+2. Final Project Goal
 
 The intended final system should:
 
-1.  Emit a controlled acoustic signal from a smartphone speaker.
-2.  Record the acoustic response using the smartphone microphone.
-3.  Determine whether a target/person is present.
-4.  Estimate the target's approximate distance from the phone.
-5.  Determine the target's spatial position at an experimentally
-    justified granularity.
-6.  Combine target detection, distance estimation, and localization into
-    one pipeline.
+Emit a controlled acoustic signal from a smartphone speaker.
+Record the acoustic response using the smartphone microphone.
+Determine whether a target/person is present.
+Estimate the target's approximate distance from the phone.
+Determine the target's spatial position at an experimentally justified granularity.
+Combine target detection, distance estimation, and localization into one pipeline.
 
 A conceptual final output is:
 
-``` text
 Target detected
-Distance: approximately 45 cm
+Distance: approximately 20 cm
 Location: Position / Region X
-```
+Confidence: Z%
 
-The exact spatial granularity is itself a research question: the system
-may ultimately support discrete regions, distance ranges, or finer
-spatial estimates. Distance estimation and person/target detection are
-future stages, not completed capabilities of the current benchmark.
+The exact spatial granularity remains a research question. The system may ultimately operate using discrete spatial regions, distance ranges, or finer estimates.
 
-## 3. Current Status
+3. Current Project Status
+3.1 Completed System Components
 
-### Completed
+The following components are implemented:
 
--   Controlled approximately 1-second 15--20 kHz chirp generation.
--   Smartphone/browser microphone recording.
--   React + TypeScript frontend.
--   FastAPI/Python backend.
--   Audio preprocessing.
--   Handcrafted acoustic feature extraction.
--   Dedicated experimental dataset pipeline.
--   SQLite dataset storage.
--   Raw WAV storage.
--   Weighted KNN acoustic fingerprint localization.
--   Leave-one-out evaluation.
--   Prediction confidence.
--   Research dashboard and analysis views.
--   Predict-one and predict-all dataset workflows.
--   Feature and prediction CSV exports.
--   STFT/PSD acoustic fingerprint implementation.
--   STFT/PSD evaluation and baseline comparison.
+Controlled approximately 1-second, 15–20 kHz chirp generation.
+Smartphone/browser microphone recording.
+React + TypeScript frontend.
+FastAPI/Python backend.
+Audio preprocessing.
+Handcrafted acoustic feature extraction.
+Dedicated experimental dataset subsystem.
+SQLite storage.
+Raw WAV storage.
+Weighted KNN acoustic fingerprint localization.
+Leave-one-out evaluation.
+Prediction confidence.
+Research dashboard.
+Dataset collection interface.
+Predict-one workflow.
+Predict-all workflow.
+Feature CSV export.
+Prediction CSV export.
+STFT/PSD fingerprint implementation.
+STFT/PSD benchmark comparison.
+Experimental target-presence metadata.
+Experimental distance metadata.
+Distance regression using Extra Trees.
+Leakage-aware distance prediction for individual samples.
+Position + distance prediction in the dataset prediction workflow.
+Distance error reporting.
+3.2 Current Research Position
 
-### Current Research
+The project has progressed beyond the initial position-classification benchmark.
 
-The current stage is comparing two acoustic representations:
+The current research pipeline contains three related experiments:
 
-``` text
-12 handcrafted acoustic features
-             VS
+Experiment 1
+12 handcrafted features
+        ↓
+Weighted KNN
+        ↓
+Spatial position classification
+        ↓
+82.50% LOOCV accuracy
+Experiment 2
 427-dimensional STFT/PSD fingerprint
-```
+        ↓
+Weighted KNN
+        ↓
+Spatial position classification
+        ↓
+81.50% LOOCV accuracy
+Experiment 3 / EXP-013
+12 acoustic features
+        ↓
+Position classification
+        +
+Target-presence analysis
+        +
+Distance regression
+        ↓
+Experimental validation
 
-The main questions are why the representations disagree, which spatial
-positions have overlapping acoustic signatures, and whether the current
-STFT/PSD temporal averaging discards useful information.
+The latest integration also allows the application to run a position prediction and distance prediction together.
 
-### Planned
+3.3 Important Scientific Limitation
 
--   Improved temporal STFT/PSD representation.
--   Echo and reflection analysis.
--   Cross-correlation and propagation-delay estimation.
--   Distance estimation.
--   Target/person presence detection.
--   Combined target + distance + position prediction.
--   More robust experiments across environmental conditions,
-    orientations, noise, and potentially devices.
--   Potential on-device inference in later stages.
+The current distance model is a supervised feature-to-distance regression model.
 
-## 4. System Architecture
+It should not be described as a completed physical echolocation / time-of-flight system.
 
-``` text
+A true propagation-delay-based ranging experiment would require estimating a measurable acoustic delay, for example using matched filtering or cross-correlation, and relating that delay to propagation distance under controlled assumptions.
+
+That experiment remains a planned research stage.
+
+4. System Architecture
                     ┌──────────────────────────┐
-                    │      Smartphone/Web       │
-                    │     React + TypeScript    │
+                    │      Smartphone/Web      │
+                    │    React + TypeScript    │
                     └────────────┬─────────────┘
                                  │
-                         Play acoustic chirp
+                          Generate chirp
                                  │
                                  ▼
                     ┌──────────────────────────┐
-                    │     Smartphone Speaker    │
+                    │    Smartphone Speaker    │
                     └────────────┬─────────────┘
                                  │
-                      Acoustic propagation
-                       + reflection / echoes
+                     Acoustic propagation
+                       + reflection/echoes
                                  │
                                  ▼
                     ┌──────────────────────────┐
-                    │   Smartphone Microphone   │
+                    │  Smartphone Microphone   │
                     └────────────┬─────────────┘
                                  │
-                              WAV data
+                               WAV
                                  │
                                  ▼
                     ┌──────────────────────────┐
-                    │       FastAPI API         │
-                    │      Python Backend       │
+                    │       FastAPI API        │
+                    │      Python Backend      │
                     └────────────┬─────────────┘
                                  │
-             ┌───────────────────┼───────────────────┐
-             ▼                   ▼                   ▼
-       Preprocessing       Feature Extraction      Storage
-                                  │
-                        ┌─────────┴─────────┐
-                        ▼                   ▼
-                  Handcrafted           STFT / PSD
-                    Features            Fingerprint
-                        │                   │
-                        └─────────┬─────────┘
-                                  ▼
-                           Weighted KNN
-                                  │
-                                  ▼
-                         Position + Confidence
-```
-
-## 5. Technology Stack
-
-  Layer              Technology
-  ------------------ -----------------------------------
-  Frontend           React, TypeScript, Vite
-  Backend            Python, FastAPI
-  Audio Processing   Librosa, NumPy, SciPy
-  Machine Learning   Weighted KNN / custom ML pipeline
-  Database           SQLite
-  Audio              WAV
-  Mobile Access      HTTPS via Cloudflare Tunnel
-  Export             CSV
-  Development        VS Code, PowerShell
-  Version Control    Git / GitHub
-
-## 6. Repository Structure
-
-``` text
+              ┌──────────────────┼──────────────────┐
+              ▼                  ▼                  ▼
+       Preprocessing      Feature Extraction     Storage
+              │                  │
+              │          ┌───────┴────────┐
+              │          ▼                ▼
+              │   Handcrafted        STFT / PSD
+              │     Features          Fingerprint
+              │          │                │
+              └──────────┴───────┬────────┘
+                                 ▼
+                         Position Prediction
+                                 │
+                                 ▼
+                         Distance Prediction
+                                 │
+                                 ▼
+                    Position + Distance + Error
+                                 │
+                                 ▼
+                         Dashboard / CSV
+5. Technology Stack
+Layer	Technology
+Frontend	React, TypeScript, Vite
+Backend	Python, FastAPI, Uvicorn
+Audio Processing	Librosa, NumPy, SciPy
+Machine Learning	scikit-learn, Weighted KNN, Extra Trees
+Database	SQLite
+Audio Format	WAV
+Mobile Access	HTTPS via Cloudflare Tunnel
+Export	CSV
+Development	VS Code, PowerShell
+Version Control	Git / GitHub
+6. Repository Structure
 acoustic-localization/
 │
 ├── backend/
@@ -200,7 +218,8 @@ acoustic-localization/
 │   │   ├── ml/
 │   │   │   ├── __init__.py
 │   │   │   ├── model.py
-│   │   │   └── predictor.py
+│   │   │   ├── predictor.py
+│   │   │   └── distance_predictor.py
 │   │   │
 │   │   └── dataset/
 │   │       ├── __init__.py
@@ -240,114 +259,163 @@ acoustic-localization/
 │
 ├── .gitignore
 └── README.md
-```
+6.1 Important Modules
+Original measurement system
+backend/app/api/routes.py
+backend/app/ml/model.py
+backend/app/ml/predictor.py
+backend/app/storage.py
 
-### Important modules
+This system provides the original measurement workflow and routes such as:
 
--   `backend/app/audio/features.py` --- handcrafted features and
-    STFT/PSD fingerprint extraction.
--   `backend/app/audio/preprocessing.py` --- audio preprocessing.
--   `backend/app/dataset/predictor.py` --- experimental dataset
-    prediction algorithms.
--   `backend/app/dataset/storage.py` --- experimental dataset
-    persistence.
--   `backend/app/dataset/models.py` --- dataset models.
--   `backend/app/api/dataset_routes.py` --- experimental dataset REST
-    API.
--   `backend/app/api/routes.py` --- original measurement REST API.
--   `backend/app/ml/` --- original measurement-system ML implementation.
--   `backend/scripts/evaluate_dataset.py` --- reproducible research
-    evaluation.
--   `frontend/src/pages/CollectData.tsx` --- experimental collection and
-    prediction UI.
--   `frontend/src/components/ResearchDashboard.tsx` --- research
-    analytics UI.
+/api/analyze
+/api/measurements
+/api/positions
+Experimental dataset system
+backend/app/api/dataset_routes.py
+backend/app/dataset/
+frontend/src/pages/CollectData.tsx
+frontend/src/lib/datasetApi.ts
 
-## 7. Acoustic Signal
+This system is used for controlled research experiments, dataset collection, prediction, evaluation, and CSV export.
 
-The current experiment uses an approximately **1-second chirp spanning
-15--20 kHz**.
+Distance prediction
+backend/app/ml/distance_predictor.py
+
+This module implements the current supervised distance-regression experiment using Extra Trees and the controlled distance-labelled dataset.
+
+7. Important Separation Between the Two Systems
+
+The repository intentionally contains two related but separate workflows.
+
+A. Original Measurement System
+backend/app/api/routes.py
+backend/app/ml/
+backend/app/storage.py
+
+Used for the original measurement and feedback workflow.
+
+B. Experimental Dataset System
+backend/app/api/dataset_routes.py
+backend/app/dataset/
+frontend/src/pages/CollectData.tsx
+frontend/src/lib/datasetApi.ts
+
+Used for controlled experiments.
+
+Keeping these systems separated makes it possible to change research experiments without unnecessarily breaking the original measurement workflow.
+
+8. Acoustic Signal
+
+The current controlled experiment uses an approximately:
+
+Duration:       ~1 second
+Frequency:      15–20 kHz
+Signal:         Chirp
 
 Measurement flow:
 
-``` text
 Generate chirp
-    ↓
+      ↓
 Play through phone speaker
-    ↓
+      ↓
 Acoustic propagation / reflection
-    ↓
+      ↓
 Record through microphone
-    ↓
+      ↓
 Save WAV
-    ↓
+      ↓
 Extract acoustic representation
-    ↓
-Predict position
-```
+      ↓
+Predict
 
-The controlled signal makes measurements from different spatial
-locations comparable.
+The controlled signal makes measurements from different experimental conditions comparable.
 
-## 8. Experimental Dataset
+9. Experimental Dataset
+9.1 Original Position Benchmark
 
-A separate dataset subsystem was created so experimental ground truth
-remains independent from the original measurement/feedback workflow.
+The original benchmark contains:
 
-Current benchmark:
-
-``` text
 Total recordings:        200
-Spatial positions:        10
+Spatial positions:       10
 Recordings per position: 20
-```
+Position	Samples
+Pos 1	20
+Pos 2	20
+Pos 3	20
+Pos 4	20
+Pos 5	20
+Pos 6	20
+Pos 7	20
+Pos 8	20
+Pos 9	20
+Pos 10	20
+Total	200
 
-  Position      Samples
-  ----------- ---------
-  Pos 1              20
-  Pos 2              20
-  Pos 3              20
-  Pos 4              20
-  Pos 5              20
-  Pos 6              20
-  Pos 7              20
-  Pos 8              20
-  Pos 9              20
-  Pos 10             20
-  **Total**     **200**
+The dataset stores:
 
-The dataset stores sample ID, timestamp, position, target-presence
-metadata, distance metadata, remarks, raw WAV, features, prediction,
-confidence, and evaluation status.
+Sample ID
+Timestamp
+Position
+Target-presence metadata
+Distance metadata
+Remarks
+Raw WAV recording
+Extracted features
+Prediction
+Confidence
+Evaluation status
 
-The collection UI supports target labels `Yes`, `No`, and `Can't say`,
-and distance values such as 15, 30, 45 cm, or Unknown. These fields
-prepare the dataset for later target-detection and distance experiments;
-the current 200-sample benchmark is primarily a position-classification
-experiment.
+Target labels supported by the collection interface:
 
-## 9. Baseline Acoustic Features
+Yes
+No
+Can't say
+
+Distance metadata can contain values such as:
+
+15 cm
+30 cm
+45 cm
+Unknown
+
+The original 200-sample benchmark is primarily a position-classification experiment.
+
+10. Environment Layout of the 200-Sample Benchmark
+
+The original 10-position dataset was collected across different environments:
+
+Positions 1–5  → Room 1
+Positions 6–9  → Room 2
+Position 10    → Open area
+
+The open-area position contains additional environmental activity, including people speaking and comparatively higher background noise.
+
+This is important when interpreting per-position performance because acoustic differences can arise from both spatial geometry and environmental conditions.
+
+11. Baseline Acoustic Features
 
 The baseline representation contains 12 handcrafted features:
 
-1.  RMS dB
-2.  Peak dB
-3.  Spectral centroid
-4.  Spectral bandwidth
-5.  Spectral rolloff
-6.  Spectral flatness
-7.  Zero-crossing rate
-8.  15--16 kHz energy
-9.  16--17 kHz energy
-10. 17--18 kHz energy
-11. 18--19 kHz energy
-12. 19--20 kHz energy
+RMS dB
+Peak dB
+Spectral centroid
+Spectral bandwidth
+Spectral rolloff
+Spectral flatness
+Zero-crossing rate
+15–16 kHz energy
+16–17 kHz energy
+17–18 kHz energy
+18–19 kHz energy
+19–20 kHz energy
 
-## 10. Baseline KNN
+These features provide a compact representation of the recorded acoustic response.
 
-The baseline uses normalized distance-weighted KNN:
+12. Baseline Position Model
 
-``` text
+The baseline uses normalized distance-weighted KNN.
+
 WAV
  ↓
 Preprocessing
@@ -363,54 +431,64 @@ K = 5 nearest neighbours
 Inverse-distance weighted voting
  ↓
 Predicted position + confidence
-```
 
-Evaluation excludes the current sample itself.
+Evaluation excludes the current sample from the reference set.
 
-### Baseline result
+13. Baseline Position Result
 
-``` text
+The original 200-sample benchmark produced:
+
 Samples:       200
 Evaluated:     200
 Correct:       165
 Incorrect:      35
-Accuracy:     82.50%
-```
+Accuracy:      82.50%
 
-  Position     Correct   Accuracy
-  ---------- --------- ----------
-  Pos 1          17/20        85%
-  Pos 2          19/20        95%
-  Pos 3          18/20        90%
-  Pos 4          19/20        95%
-  Pos 5          13/20        65%
-  Pos 6          15/20        75%
-  Pos 7          18/20        90%
-  Pos 8          17/20        85%
-  Pos 9          12/20        60%
-  Pos 10         17/20        85%
+Per-position results:
 
-Common confusion patterns include Pos 9→8, Pos 6→7, Pos 5→2, Pos 9→10,
-and Pos 8→10. These indicate that some positions have overlapping
-acoustic signatures.
+Position	Correct	Accuracy
+Pos 1	17/20	85%
+Pos 2	19/20	95%
+Pos 3	18/20	90%
+Pos 4	19/20	95%
+Pos 5	13/20	65%
+Pos 6	15/20	75%
+Pos 7	18/20	90%
+Pos 8	17/20	85%
+Pos 9	12/20	60%
+Pos 10	17/20	85%
 
-## 11. STFT/PSD Experiment
+Common confusion patterns included:
 
-A second representation was implemented using Short-Time Fourier
-Transform and Power Spectral Density.
+Pos 9 → Pos 8
+Pos 6 → Pos 7
+Pos 5 → Pos 2
+Pos 9 → Pos 10
+Pos 8 → Pos 10
 
-Current pipeline:
+These patterns indicate that some positions have overlapping acoustic signatures under the experimental conditions.
 
-``` text
+14. STFT / PSD Experiment
+
+A second acoustic representation was implemented using Short-Time Fourier Transform and Power Spectral Density.
+
+Parameters:
+
+N_FFT       = 4096
+HOP_LENGTH  = 1024
+Frequency   = 15–20 kHz
+
+Pipeline:
+
 WAV
  ↓
 Remove DC
  ↓
 STFT
  ↓
-Power spectrum
+Power = |STFT|²
  ↓
-15–20 kHz restriction
+Restrict to 15–20 kHz
  ↓
 Average PSD over time
  ↓
@@ -421,117 +499,452 @@ Convert to dB
 Weighted KNN
  ↓
 Position
-```
 
-The same 200 recordings and leave-one-out protocol are used for
-comparison.
+The same 200 recordings and leave-one-out evaluation protocol were used.
 
-### STFT/PSD result
-
-``` text
-Samples:        200
-Evaluated:      200
-Correct:        163
-Incorrect:       37
+STFT/PSD Result
+Samples:       200
+Evaluated:     200
+Correct:       163
+Incorrect:      37
 Accuracy:      81.50%
-Dimensions:      427
-```
+Dimensions:     427
+Representation	Dimensions	Model	Accuracy
+Handcrafted	12	Weighted KNN	82.50%
+STFT/PSD	427	Weighted KNN	81.50%
 
-  Representation     Dimensions     Accuracy
-  ---------------- ------------ ------------
-  Handcrafted                12   **82.50%**
-  STFT/PSD                  427   **81.50%**
+The STFT/PSD representation did not improve overall accuracy in this experiment.
 
-The current STFT/PSD result does not improve overall accuracy, but it
-changes performance differently across positions. The experiment is
-therefore useful for understanding the information captured by the two
-representations.
+A key research hypothesis is that averaging the PSD over time may remove useful information about the chirp's time-frequency evolution. This is a hypothesis for further testing, not an established conclusion.
 
-A key research hypothesis for the next experiment is that averaging PSD
-over time may discard useful information from the chirp's time-frequency
-evolution. This is a hypothesis to test, not an established conclusion.
+15. EXP-013: Target and Distance Experiment
 
-## 12. APIs
+A separate experiment, EXP-013, was created to move beyond the original 10-position benchmark and investigate target presence and distance.
+
+Dataset:
+
+Total recordings:          220
+Positions:                   7
+Target present:            185
+Target absent:              35
+
+Known target-present distance classes include:
+
+5 cm
+10 cm
+15 cm
+20 cm
+25 cm
+30 cm
+
+The experiment uses the same family of handcrafted acoustic features for its initial supervised analysis.
+
+16. EXP-013 Position Classification
+
+Using the EXP-013 data, the position classifier achieved:
+
+Correct:     117
+Total:       220
+Accuracy:    53.18%
+
+There are 7 positions, so the nominal balanced chance level for a uniform 7-class problem is approximately:
+
+14.29%
+
+Per-position accuracy observed in the experiment:
+
+Position	Accuracy
+P1	10.0%
+P2	68.6%
+P3	40.0%
+P4	42.9%
+P5	94.3%
+P6	31.4%
+P7	54.3%
+
+Important confusion patterns included:
+
+P4 ↔ P6
+P3 → P2
+P6 → P3 / P7
+
+This experiment demonstrates that performance is highly dependent on the experimental setup and dataset composition. The 82.50% result from the original benchmark should therefore not be treated as a universal localization accuracy.
+
+17. EXP-013 Target-Presence Analysis
+
+EXP-013 also contains target-present and target-absent recordings.
+
+The initial analysis showed that raw classification accuracy could appear around the low-80% range while balanced performance was much lower, around 50%.
+
+Therefore:
+
+The current EXP-013 data does not justify claiming robust target/person detection.
+
+The imbalance between target-present and target-absent samples must be considered when evaluating detection performance.
+
+Future target detection experiments should use a controlled and better-balanced target-present vs target-absent dataset and report metrics such as:
+
+Accuracy
+Precision
+Recall
+F1-score
+Confusion matrix
+Balanced accuracy
+ROC-AUC where appropriate
+18. EXP-013 Acoustic-Distance Analysis
+
+Correlation analysis on the handcrafted features showed that some high-frequency energy bands contained measurable relationships with distance.
+
+For example:
+
+18–19 kHz feature correlation ≈ -0.314
+19–20 kHz feature correlation ≈ -0.283
+
+These correlations are not strong enough by themselves to establish a reliable physical distance relationship.
+
+They are useful as evidence that distance-related information may exist in the acoustic representation and can motivate supervised regression experiments.
+
+19. EXP-013 PCA Analysis
+
+PCA was also used to inspect whether the acoustic feature space naturally separates the experimental samples.
+
+Observed explained variance:
+
+PC1 = 65.39%
+PC2 = 11.44%
+PC3 =  8.35%
+
+Therefore:
+
+PC1 + PC2 ≈ 76.8%
+
+The projected samples showed substantial overlap.
+
+This suggests that the 12-dimensional handcrafted feature space does not produce cleanly separated clusters for all experimental conditions.
+
+PCA is used here as an exploratory visualization tool and is not itself a localization model.
+
+20. Distance Regression
+
+The project now includes a supervised distance-regression experiment.
+
+The current training subset contains:
+
+185 target-present recordings
+Known distances
+5, 10, 15, 20, 25, 30 cm
+
+The model uses the same family of handcrafted acoustic features.
+
+20.1 Model
+
+The current distance predictor uses:
+
+ExtraTreesRegressor
+
+with preprocessing that handles non-finite feature values through median imputation.
+
+The evaluation uses a leave-one-position-out (LOPO) protocol for the experimental distance model.
+
+The reason for selecting Extra Trees was empirical:
+
+It produced the lowest LOPO MAE among the tested regression models on this dataset.
+
+It was not selected because Extra Trees is universally superior for acoustic ranging.
+
+21. Distance Regression Results
+
+Current LOPO results:
+
+Model	MAE (cm)	RMSE (cm)	R²	±2 cm	±5 cm	±10 cm
+Extra Trees	6.777	8.368	0.067	19.459%	41.081%	76.216%
+Ridge	7.043	10.467	-0.460	—	—	—
+Gradient Boosting	7.103	9.064	-0.095	—	—	—
+Random Forest	7.181	9.003	-0.080	—	—	—
+KNN	7.270	8.797	-0.031	—	—	—
+
+The current Extra Trees result is:
+
+MAE:       6.777 cm
+RMSE:      8.368 cm
+R²:        0.067
+Within ±2 cm:   19.459%
+Within ±5 cm:   41.081%
+Within ±10 cm:  76.216%
+
+The low R² indicates that the current features and dataset do not yet provide a strong continuous distance model.
+
+The model should therefore be treated as an experimental baseline rather than a completed ranging solution.
+
+22. Distance Error by Ground-Truth Distance
+
+The current Extra Trees experiment showed different errors across distance classes:
+
+Ground-truth distance	MAE
+5 cm	10.01 cm
+10 cm	4.44 cm
+15 cm	3.46 cm
+20 cm	3.24 cm
+25 cm	6.65 cm
+30 cm	12.32 cm
+
+This indicates that the current model does not perform uniformly across the tested distance range.
+
+In particular, the smallest and largest tested distances showed larger errors than the middle distance classes.
+
+23. Example Distance Predictions
+
+Representative examples from the experiment include:
+
+Actual 30 cm → Predicted ≈ 12.26 cm
+Actual  5 cm → Predicted ≈ 21.51 cm
+Actual 10 cm → Predicted ≈ 10.01 cm
+Actual 20 cm → Predicted ≈ 20.02 cm
+
+These examples illustrate why aggregate error metrics are necessary.
+
+A model can predict some individual distances closely while making large errors on other samples.
+
+24. Distance Prediction Methodology
+
+The current distance model does not calculate distance directly from the speed of sound.
+
+Instead, it learns a statistical mapping:
+
+Recorded WAV
+     ↓
+Preprocessing
+     ↓
+12 acoustic features
+     ↓
+Trained regression model
+     ↓
+Predicted distance in cm
+
+Conceptually:
+
+features → learned relationship → distance
+
+The model learns this relationship from recordings whose distances are already known.
+
+For example, training data contains:
+
+Feature vector A → 5 cm
+Feature vector B → 10 cm
+Feature vector C → 15 cm
+...
+Feature vector F → 30 cm
+
+The regression model learns patterns in the feature space associated with those labelled distances.
+
+This is fundamentally different from physical time-of-flight ranging.
+
+25. Physical Echolocation / Time-of-Flight: Future Method
+
+A more physically interpretable ranging system would use the transmitted chirp as a reference.
+
+Conceptually:
+
+Transmitted chirp
+       +
+Recorded microphone signal
+       ↓
+Cross-correlation / matched filtering
+       ↓
+Detect direct / reflected peaks
+       ↓
+Estimate propagation delay Δt
+       ↓
+Distance estimation
+
+For a simple round-trip reflection model:
+
+d = c × Δt / 2
+
+where:
+
+d  = target distance
+c  = speed of sound
+Δt = measured round-trip delay
+
+This requires careful experimental control because the microphone recording contains:
+
+Direct acoustic leakage
+Speaker-to-microphone coupling
+Room reflections
+Multiple paths
+Background noise
+Hardware latency
+Device-specific processing
+
+This is the planned direction for a more physically grounded distance-estimation experiment.
+
+26. Current Distance Prediction Integration
+
+The application now integrates distance prediction into the dataset prediction workflow.
+
+For a single sample:
+
+Sample
+ ↓
+Extract / retrieve features
+ ↓
+Position prediction
+ ↓
+Distance model
+ ↓
+Exclude current sample from distance-training references
+ ↓
+Predicted distance
+ ↓
+Compare with known distance when available
+ ↓
+Distance error
+
+For bulk prediction:
+
+All dataset samples
+       ↓
+For each sample
+       ↓
+Position prediction
+       +
+Leakage-aware distance prediction
+       ↓
+Results
+
+The current sample is excluded from the distance model's training set when making its own prediction.
+
+This is important because including the sample being evaluated in its own training set would cause data leakage and could make the reported prediction artificially optimistic.
+
+27. Prediction Output
+
+The prediction workflow can provide fields such as:
+
+Predicted position
+Position confidence
+Ground-truth position
+Evaluation status
+
+Predicted distance
+Ground-truth distance
+Distance error
+
+Conceptually:
+
+Position:       P4
+Confidence:     87.2%
+
+Distance:       18.4 cm
+Ground truth:   20.0 cm
+Error:           1.6 cm
+
+The exact values depend on the recording being evaluated.
+
+28. Experimental Dataset API
 
 The experimental dataset API is under:
 
-``` text
 /api/dataset
-```
-
-### Positions
-
-``` http
+28.1 Positions
 GET    /api/dataset/positions
 POST   /api/dataset/positions
 DELETE /api/dataset/positions/{position_id}
-```
-
-### Samples
-
-``` http
+28.2 Samples
 GET    /api/dataset/samples
 POST   /api/dataset/samples
 PUT    /api/dataset/samples/{sample_id}
 DELETE /api/dataset/samples/{sample_id}
-```
-
-### Prediction
-
-``` http
+28.3 Prediction
 POST /api/dataset/samples/{sample_id}/predict
 POST /api/dataset/samples/predict-all
-```
 
-The prediction endpoint excludes the current sample from its reference
-set.
+These endpoints support the position and distance prediction workflow.
 
-### Summary
-
-``` http
+28.4 Summary
 GET /api/dataset/summary
-```
 
-Returns total samples, labeled samples, evaluated predictions,
-correct/incorrect counts, accuracy, position distribution,
-target-presence distribution, and distance distribution.
+The summary provides dataset-level information such as:
 
-### Exports
-
-``` http
+Total samples
+Labelled samples
+Evaluated predictions
+Correct/incorrect counts
+Position accuracy
+Position distribution
+Target-presence distribution
+Distance distribution
+28.5 Exports
 GET /api/dataset/export/features
 GET /api/dataset/export/predictions
-```
 
-The original measurement system remains available through the existing
-measurement routes, including:
+Generated research artifacts include:
 
-``` text
+web_dataset_features.csv
+web_dataset_predictions.csv
+stft_psd_results.csv
+29. Original Measurement API
+
+The original measurement system remains available through:
+
 /api/analyze
 /api/measurements
 /api/positions
-```
 
-plus its feedback, discard/restore, and audio operations.
+It also contains the original measurement feedback, audio, discard/restore, and history operations.
 
-## 13. Research Dashboard
+The original and experimental APIs should be treated as separate workflows.
 
-The research dashboard contains views for:
+30. Research Dashboard
 
--   Dataset overview
--   Prediction behaviour
--   Position analysis
--   Distance effects
--   Environmental conditions
--   Acoustic features
--   PCA visualization
+The research dashboard provides views for:
 
-The dashboard is intended for research analysis rather than only final
-prediction display.
+Dataset overview
+Prediction behaviour
+Position analysis
+Distance effects
+Environmental conditions
+Acoustic features
+PCA visualization
 
-## 14. Data Flow
+The dashboard is intended for research analysis rather than only final prediction display.
 
-``` text
+31. Data Collection Interface
+
+The experimental collection interface supports:
+
+Create/select position
+        ↓
+Select target presence
+        ↓
+Select distance
+        ↓
+Add remarks
+        ↓
+Generate chirp
+        ↓
+Record audio
+        ↓
+Save sample
+        ↓
+Extract features
+        ↓
+Run prediction
+        ↓
+Inspect nearest samples
+        ↓
+Evaluate prediction
+
+The interface also supports:
+
+Sample editing
+Sample deletion
+WAV playback
+Dataset summaries
+Predict-all
+Feature CSV download
+Prediction CSV download
+32. Data Flow
 User selects position
         ↓
 Target/distance metadata
@@ -550,7 +963,7 @@ Feature extraction
         ↓
 SQLite dataset storage
         ↓
-Prediction
+Position prediction
         ↓
 Reference fingerprints
         ↓
@@ -560,246 +973,348 @@ Weighted voting
         ↓
 Position + confidence
         ↓
+Distance regression
+        ↓
+Predicted distance + error
+        ↓
 Ground-truth evaluation
         ↓
 Dashboard / CSV
-```
+33. Evaluation Methodology
+33.1 Position Evaluation
 
-## 15. Evaluation Methodology
-
-The current benchmark uses **leave-one-out evaluation**.
+The original position benchmark uses leave-one-out evaluation.
 
 For each sample:
 
-``` text
 Current sample
-    ↓
+      ↓
 Ground-truth position known
-    ↓
-Remove current sample from references
-    ↓
+      ↓
+Remove current sample from reference set
+      ↓
 Compare with remaining samples
-    ↓
+      ↓
 Select nearest neighbours
-    ↓
+      ↓
 Predict position
-    ↓
-Compare prediction with ground truth
-```
+      ↓
+Compare with ground truth
 
-The same protocol is used for the handcrafted baseline and STFT/PSD
-experiment.
+The same protocol is used for the handcrafted and STFT/PSD position experiments.
 
-## 16. Research Roadmap
+33.2 Distance Evaluation
 
-### Stage 1 --- Basic acoustic localization
+The EXP-013 distance experiment uses a leave-one-position-out evaluation strategy.
 
-**Completed**
+The purpose is to evaluate generalization across spatial groups rather than allowing the same position's recordings to dominate the training data.
 
-``` text
-Chirp → Recording → Features → KNN → Position
-```
+For integrated single-sample prediction, the current sample is explicitly excluded from the distance-training references.
 
-### Stage 2 --- Acoustic fingerprint comparison
+34. Research Leakage Considerations
 
-**Current**
+The project explicitly avoids evaluating a sample using itself as a training reference.
 
-Compare handcrafted features against STFT/PSD and investigate:
+For position KNN:
 
--   confusion matrices
--   sample-level agreement/disagreement
--   confidence
--   nearest neighbours
--   statistical significance
--   temporal STFT/PSD representations
--   appropriate dimensionality reduction
+Current sample
+     X
+Reference set
 
-### Stage 3 --- Echo/reflection analysis
+The current sample is removed before nearest-neighbour prediction.
 
-**Planned**
+For distance regression:
+
+Current sample
+     X
+Distance training data
+
+The current sample is excluded when the application performs a prediction for that sample.
+
+This separation is necessary for meaningful experimental evaluation.
+
+35. Research Roadmap
+Stage 1 — Basic Acoustic Localization
+
+Completed
+
+Chirp
+  ↓
+Recording
+  ↓
+Features
+  ↓
+KNN
+  ↓
+Position
+
+Current benchmark:
+
+82.50% LOOCV accuracy
+Stage 2 — Acoustic Fingerprint Comparison
+
+Completed / ongoing analysis
+
+Compare:
+
+12 handcrafted features
+        VS
+427-dimensional STFT/PSD fingerprint
+
+Research questions:
+
+Which samples do the models agree on?
+Which samples do they disagree on?
+Which positions are acoustically ambiguous?
+How does confidence change?
+What nearest neighbours cause errors?
+Does temporal averaging remove useful chirp information?
+Which dimensionality-reduction methods are appropriate?
+Stage 3 — EXP-013 Target and Distance Experiment
+
+Implemented
 
 Investigate:
 
--   cross-correlation
--   echo detection
--   impulse-response analysis
--   time-of-arrival
--   dominant-reflector analysis
+Target presence
+Distance metadata
+Position classification
+Distance regression
+
+Current distance regression baseline:
+
+Extra Trees
+MAE = 6.777 cm
+
+The experiment remains limited by the current dataset size, class distribution, and acoustic variability.
+
+Stage 4 — Echo / Reflection Analysis
+
+Next major research stage
+
+Investigate:
+
+Cross-correlation
+Matched filtering
+Echo detection
+Impulse-response analysis
+Time-of-arrival
+Dominant-reflector analysis
 
 Concept:
 
-``` text
 Chirp
- ↓
+  ↓
 Direct/reflected paths
- ↓
+  ↓
 Microphone
- ↓
-Correlation / echo detection
- ↓
+  ↓
+Correlation / matched filtering
+  ↓
 Delay estimation
- ↓
+  ↓
 Physical distance information
-```
+Stage 5 — Physically Grounded Distance Estimation
 
-### Stage 4 --- Distance estimation
+Planned
 
-**Planned**
+Move from purely supervised feature-to-distance regression toward propagation-delay-based ranging.
 
-Use acoustic propagation/reflection information to estimate distance,
-initially using controlled distance classes such as:
+Initial controlled distances can include:
 
-``` text
+5 cm
+10 cm
 15 cm
+20 cm
+25 cm
 30 cm
-45 cm
-...
-```
 
-Evaluation should use distance error in addition to classification
-accuracy.
+The evaluation should report:
 
-### Stage 5 --- Target/person detection
+MAE
+RMSE
+Maximum error
+Median error
+Error distribution
+Error by distance
+Percentage within ±2 cm
+Percentage within ±5 cm
+Percentage within ±10 cm
+Stage 6 — Target / Person Detection
 
-**Planned**
+Planned
 
-Distinguish:
+Build a controlled target-presence dataset:
 
-``` text
 Target present
 Target absent
-Uncertain
-```
 
-This requires controlled target-present and target-absent recordings.
+Potential models:
 
-### Stage 6 --- Integrated localization
+Threshold-based baseline
+Logistic Regression
+SVM
+Random Forest
+KNN
+Other lightweight classifiers
 
-**Future**
+Evaluation should include:
+
+Precision
+Recall
+F1-score
+Balanced accuracy
+Confusion matrix
+ROC-AUC where appropriate
+Stage 7 — Integrated Localization
+
+Future
 
 Combine:
 
-``` text
 Target detection
-      +
+       +
 Distance estimation
-      +
+       +
 Spatial localization
-```
 
-into a unified system:
+into:
 
-``` text
 Target: Detected
 Distance: ~X cm
-Position: Region/Position Y
+Position: Region / Position Y
 Confidence: Z%
-```
+36. Future Dataset Expansion
 
-## 17. Future Dataset Expansion
+Future experiments should vary:
 
-Later experiments should vary:
+Target presence
+Target distance
+Target position
+Target orientation
+Phone orientation
+Background noise
+Environmental conditions
+Reflecting surfaces/materials
+Repeated trials
+Smartphone devices
 
--   target presence
--   target distance
--   target position
--   target orientation
--   phone orientation
--   background noise
--   environmental conditions
--   reflecting surfaces/materials
--   repeated trials
--   potentially different smartphone devices
+The goal is to determine whether the learned acoustic patterns generalize beyond the initial controlled setup.
 
-This will test robustness and generalization beyond the initial
-controlled experiment.
+37. Current Limitations
 
-## 18. Current Limitations
+The current system does not yet provide:
 
-The current system does **not yet** provide:
+Robust person detection.
+Reliable continuous physical distance estimation.
+Guaranteed physical coordinate estimation.
+Environment-independent localization.
+Multi-device generalization.
+Complete echo-based ranging.
+Production-grade real-time localization.
+Floor-plan reconstruction.
 
--   robust person detection
--   continuous distance estimation
--   guaranteed physical coordinate estimation
--   environment-independent localization
--   multi-device generalization
--   complete echo-based ranging
--   production-grade real-time localization
--   floor-plan reconstruction
+The demonstrated capability at the current checkpoint is:
 
-The demonstrated capability at the current checkpoint is **experimental
-acoustic position classification using fingerprint-based methods**.
+Experimental acoustic position classification using fingerprint-based methods, with an additional supervised distance-regression prototype.
 
-## 19. Running the Project
+The distance-regression prototype should not be confused with completed physical echolocation.
 
-### Backend
+38. Important Research Interpretation
+
+The current results should be interpreted as dataset- and environment-specific experimental results.
+
+In particular:
+
+82.50% on the original 200-sample benchmark
+
+does not imply that the system can localize a person with 82.5% accuracy in arbitrary environments.
+
+Similarly:
+
+6.777 cm MAE
+
+from EXP-013 does not imply that the smartphone can physically measure distance to a person with 6.777 cm accuracy in general.
+
+These results are baselines for the controlled experiments that produced them.
+
+39. Running the Project
+39.1 Backend
 
 From the repository root:
 
-``` powershell
 cd backend
 .\.venv\Scripts\Activate.ps1
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
 
 Backend:
 
-``` text
 http://localhost:8000
-```
+39.2 Frontend
 
-### Frontend
+Open a second terminal:
 
-``` powershell
 cd frontend
 npm install
 npm run dev
-```
 
-For smartphone microphone access, the frontend can be exposed through
-the configured HTTPS Cloudflare tunnel.
+For smartphone microphone access, the frontend can be exposed through the configured HTTPS Cloudflare tunnel.
 
-## 20. Evaluation Script
+40. Development Validation
 
-From `backend/`:
+Before committing changes:
 
-``` powershell
+cd frontend
+npx tsc --noEmit
+npm run build
+
+Backend can be started with:
+
+cd backend
+.\.venv\Scripts\Activate.ps1
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+41. Evaluation Script
+
+From backend/:
+
 python scripts/evaluate_dataset.py
-```
 
-The evaluation script can recalculate representations from stored WAV
-recordings and perform leave-one-out evaluation.
+The evaluation script can recalculate representations from stored WAV recordings and perform leave-one-out evaluation.
 
 The STFT/PSD evaluation output is written under:
 
-``` text
 backend/data/dataset/evaluation/stft_psd_results.csv
-```
+42. Research Data Files
 
-## 21. Generated Data and Git
+Important generated research files include:
 
-The experimental dataset is intentionally excluded from Git:
-
-``` gitignore
-backend/data/dataset/
-```
-
-This prevents local databases and raw recordings from being committed to
-the repository.
-
-Generated research artifacts can include:
-
-``` text
 web_dataset_features.csv
 web_dataset_predictions.csv
 stft_psd_results.csv
-```
 
-## 22. Research Methodology
+For EXP-013, the research outputs include:
+
+dataset_features_EXP-013.csv
+dataset_predictions_EXP-013.csv
+
+These files are used for offline analysis, visualizations, PCA, confusion matrices, distance-regression evaluation, and model comparison.
+
+Large raw datasets and recordings are intentionally kept outside the Git repository where appropriate.
+
+43. Generated Data and Git
+
+The experimental dataset is intentionally excluded from Git:
+
+backend/data/dataset/
+
+This prevents local databases and raw recordings from being committed to the repository.
+
+Generated research artifacts can be retained separately when required for analysis.
+
+44. Research Methodology
 
 The project follows an incremental experimental process:
 
-``` text
 Baseline
    ↓
 Measure
@@ -813,11 +1328,9 @@ Analyze differences
 Understand acoustic behaviour
    ↓
 Select next experiment
-```
 
-The current progression is:
+The research progression is:
 
-``` text
 Acoustic signal
       ↓
 Handcrafted acoustic fingerprint
@@ -826,106 +1339,239 @@ Weighted KNN localization
       ↓
 STFT/PSD fingerprint
       ↓
+Target/distance experiment
+      ↓
 Echo/correlation features
       ↓
-Distance estimation
+Physical distance estimation
       ↓
 Target detection
       ↓
 Combined localization
-```
 
-## 23. Key Results
+The intention is to avoid jumping directly to a complex deep-learning model before understanding the signal and dataset behaviour.
 
-  -----------------------------------------------------------------------------
-  Experiment            Samples Representation    Model                Accuracy
-  ------------ ---------------- ----------------- ------------ ----------------
-  Baseline                  200 12 handcrafted    Weighted KNN       **82.50%**
-                                features                       
+45. Key Quantitative Results
+Original Position Benchmark
+Experiment	Samples	Representation	Model	Evaluation	Accuracy
+Baseline	200	12 handcrafted features	Weighted KNN	LOOCV	82.50%
+STFT/PSD	200	427-dimensional fingerprint	Weighted KNN	LOOCV	81.50%
+EXP-013
+Experiment	Samples	Result
+Position classification	220	53.18% accuracy
+Target-present samples	185	Used for distance regression
+Target-absent samples	35	Used in target-presence analysis
+Distance regression	185	Extra Trees MAE = 6.777 cm
 
-  STFT/PSD                  200 427-dimensional   Weighted KNN       **81.50%**
-                                STFT/PSD                       
-  -----------------------------------------------------------------------------
+The EXP-013 position result is not directly comparable to the original 200-sample 10-position benchmark because the dataset, number of positions, target conditions, and experimental setup differ.
 
-The 82.5% result is the current quantitative baseline. The 81.5%
-STFT/PSD result is an experimental comparison, not a replacement
-baseline.
+46. Model Summary
+Position Localization
+Input:
+    WAV recording
 
-## 24. Project at a Glance
+Features:
+    12 handcrafted acoustic features
+    OR
+    427-dimensional STFT/PSD fingerprint
 
-``` text
-                 ACOUSTIC LOCALIZATION
-                          │
-                          ▼
-                 15–20 kHz chirp
-                          │
-                          ▼
-               Smartphone speaker/mic
-                          │
-                          ▼
-                   200 WAV samples
-                          │
-                          ▼
-             ┌────────────┴────────────┐
-             │                         │
-             ▼                         ▼
-       Handcrafted                  STFT/PSD
-        12 features                427 dimensions
-             │                         │
-             ▼                         ▼
-         Weighted KNN              Weighted KNN
-             │                         │
-             ▼                         ▼
-          82.50%                    81.50%
-             │                         │
-             └────────────┬────────────┘
-                          ▼
-                 Current research
-                          │
-                          ▼
-              Improve fingerprint
-                          │
-                          ▼
-              Echo / correlation
-                          │
-                          ▼
-              Distance estimation
-                          │
-                          ▼
-              Target detection
-                          │
-                          ▼
-            Integrated localization
-```
+Model:
+    Distance-weighted KNN
 
-## 25. One-Paragraph Project Description
+Evaluation:
+    Leave-one-out
 
-Acoustic Localization is a smartphone-based research prototype that uses
-controlled 15--20 kHz acoustic chirps, microphone recordings, digital
-signal processing, and machine learning to investigate spatial
-localization. The current system provides an end-to-end data collection
-and evaluation platform and implements weighted KNN acoustic fingerprint
-localization across 10 spatial positions using 200 recordings, achieving
-82.5% leave-one-out accuracy with 12 handcrafted acoustic features. A
-427-dimensional STFT/PSD fingerprint representation has also been
-implemented and evaluated at 81.5%. The current research is focused on
-understanding these representations and progressing toward echo-based
-distance estimation, target/person detection, and integrated target
-localization.
+Output:
+    Position + confidence
+Distance Regression
+Input:
+    12 handcrafted acoustic features
 
-## 26. Final Research Questions
+Training:
+    Target-present samples with known distances
 
-The project is ultimately moving from:
+Model:
+    Extra Trees Regressor
 
-> **Can acoustic measurements distinguish spatial positions?**
+Evaluation:
+    Leave-one-position-out
+
+Output:
+    Estimated distance in cm
+Future Physical Ranging
+Input:
+    Transmitted chirp + microphone recording
+
+Signal processing:
+    Matched filtering / cross-correlation
+
+Output:
+    Propagation delay
+
+Physical model:
+    Distance from acoustic time-of-flight
+47. Why Extra Trees Is Currently Used for Distance Prediction
+
+Several regression models were evaluated on the EXP-013 distance task.
+
+Extra Trees produced the lowest observed LOPO MAE:
+
+Extra Trees:       6.777 cm
+Ridge:             7.043 cm
+Gradient Boosting: 7.103 cm
+Random Forest:     7.181 cm
+KNN:               7.270 cm
+
+Therefore Extra Trees is the current experimental model.
+
+The selection is empirical and specific to the current dataset and evaluation protocol.
+
+It should be re-evaluated when:
+
+More recordings are collected.
+New acoustic features are added.
+Echo-based features are introduced.
+The distance range is expanded.
+Multiple devices are tested.
+48. Research Questions
+
+The project is currently investigating:
+
+Position
+Can acoustic fingerprints distinguish spatial positions?
+Which acoustic features contain the most location information?
+Why do some positions have overlapping fingerprints?
+How much does the environment affect localization?
+Does time-frequency information improve over handcrafted features?
+Distance
+Can acoustic features encode enough information for distance regression?
+Are the observed correlations stable across experiments?
+Can echo delays provide a more physically meaningful distance signal?
+How much error is introduced by hardware and room reflections?
+Target Detection
+Can the acoustic response distinguish target-present from target-absent conditions?
+How much do class imbalance and background noise affect detection?
+Can controlled target experiments produce a robust classifier?
+Integrated System
+Can target presence, distance, and spatial position be inferred from the same acoustic measurement?
+Can the system generalize across rooms, orientations, noise levels, and smartphones?
+49. Recommended Experimental Progression
+
+The research should progress in controlled stages:
+
+1. Understand current handcrafted baseline
+            ↓
+2. Improve time-frequency representation
+            ↓
+3. Analyze reflections and echoes
+            ↓
+4. Estimate physical delay
+            ↓
+5. Validate distance under controlled conditions
+            ↓
+6. Build target-present / target-absent dataset
+            ↓
+7. Validate target detection
+            ↓
+8. Combine target + distance + position
+            ↓
+9. Test environmental/device robustness
+
+Each stage should have its own dataset, evaluation protocol, and quantitative metrics.
+
+50. Project at a Glance
+                  ACOUSTIC LOCALIZATION
+                           │
+                           ▼
+                     15–20 kHz chirp
+                           │
+                           ▼
+                  Smartphone speaker/mic
+                           │
+                           ▼
+                     Acoustic response
+                           │
+             ┌─────────────┴─────────────┐
+             │                           │
+             ▼                           ▼
+       Handcrafted                    STFT/PSD
+       12 features                  427 dimensions
+             │                           │
+             ▼                           ▼
+       Weighted KNN                 Weighted KNN
+             │                           │
+             ▼                           ▼
+          82.50%                      81.50%
+             │                           │
+             └─────────────┬─────────────┘
+                           ▼
+                    Research analysis
+                           │
+                           ▼
+                    EXP-013 experiments
+                           │
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+           Position     Distance     Target
+          analysis     regression   detection
+              │            │            │
+              └────────────┼────────────┘
+                           ▼
+                    Echo / correlation
+                           │
+                           ▼
+                Physical distance estimate
+                           │
+                           ▼
+                  Integrated localization
+51. One-Paragraph Project Description
+
+Acoustic Localization is a smartphone-based research prototype that uses controlled 15–20 kHz acoustic chirps, microphone recordings, digital signal processing, and machine learning to investigate spatial localization, target detection, and distance estimation. The current system provides an end-to-end data collection and evaluation platform and implements weighted KNN acoustic fingerprint localization across 10 spatial positions using 200 recordings, achieving 82.5% leave-one-out accuracy with 12 handcrafted acoustic features. A 427-dimensional STFT/PSD representation has also been implemented and evaluated at 81.5%. A separate EXP-013 experiment extends the research toward target presence and distance estimation using 220 recordings, with 185 known-distance target-present samples used for supervised distance regression. The current Extra Trees distance model achieves 6.777 cm LOPO MAE on that dataset. The next research stage is to investigate time-frequency structure, echo/correlation-based propagation delay, physically grounded distance estimation, controlled target detection, and finally integrated target + distance + spatial localization.
+
+52. Final Research Question
+
+The project is moving from:
+
+Can acoustic measurements distinguish spatial positions?
 
 toward:
 
-> **Can a single smartphone use its own speaker and microphone to detect
-> a nearby target, estimate its distance, and determine where it is
-> located?**
+Can a single smartphone use its own speaker and microphone to detect a nearby target, estimate its distance, and determine where it is located?
 
-These questions define the next stage of the BTP.
+The current implementation provides the experimental foundation required to investigate that question systematically.
+
+Project Repository
+
+GitHub:
+
+https://github.com/b23cs1015/acoustic-localization/
+Current Checkpoint
+
+Current demonstrated capability:
+
+Acoustic recording
+       ↓
+Feature extraction
+       ↓
+Position classification
+       +
+Supervised distance regression
+       ↓
+Experimental evaluation
+
+Next major research capability:
+
+Chirp
+  ↓
+Echo / correlation analysis
+  ↓
+Propagation-delay estimation
+  ↓
+Physical distance estimation
+  ↓
+Target detection
+  ↓
+Integrated spatial localization
 
 
 ## Running the Project
