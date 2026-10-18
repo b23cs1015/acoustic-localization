@@ -1,0 +1,14 @@
+{
+  "mapping_id": "20261004_172315_5fea93fa",
+  "room_name": "Room 1",
+  "remarks": "",
+  "original_filename": "room_mapping_1791114788118.wav",
+  "saved_filename": "20261004_172315_5fea93fa.wav",
+  "duration_seconds": 76.37333333333333,
+  "sample_rate": 48000,
+  "start_frequency": 15000.0,
+  "end_frequency": 20000.0,
+  "chirp_duration": 1.0,
+  "file_size_bytes": 7331884,
+  "created_at": "2026-10-04T17:23:15.688905"
+}

@@ -9,6 +9,7 @@ import StatusCard from "./components/StatusCard";
 import ResearchDashboard from "./components/ResearchDashboard";
 
 import CollectData from "./pages/CollectData";
+import RoomMapping from "./pages/RoomMapping";
 
 import type {
   MeasurementStatus,
@@ -20,7 +21,8 @@ import "./index.css";
 
 type AppPage =
   | "measurement"
-  | "collect";
+  | "collect"
+  | "room-mapping";
 
 
 export default function App() {
@@ -157,6 +159,21 @@ export default function App() {
             Collect Data
           </button>
 
+
+          <button
+            type="button"
+            className={
+              page === "room-mapping"
+                ? "active"
+                : ""
+            }
+            onClick={() =>
+              setPage("room-mapping")
+            }
+          >
+            Room Mapping
+          </button>
+
         </nav>
 
       </header>
@@ -165,6 +182,10 @@ export default function App() {
       {page === "collect" ? (
 
         <CollectData />
+
+      ) : page === "room-mapping" ? (
+
+        <RoomMapping />
 
       ) : (
 
