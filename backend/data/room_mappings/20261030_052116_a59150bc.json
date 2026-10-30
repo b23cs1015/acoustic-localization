@@ -1,0 +1,21 @@
+{
+  "mapping_id": "20261030_052116_a59150bc",
+  "room_name": "Room 1",
+  "remarks": "",
+  "original_filename": "room_mapping_1793317874922.wav",
+  "saved_filename": "20261030_052116_a59150bc.wav",
+  "duration_seconds": 4.864,
+  "sample_rate": 48000,
+  "start_frequency": 15000.0,
+  "end_frequency": 20000.0,
+  "chirp_duration": 1.0,
+  "batch_id": "BATCH_1793317797272",
+  "recording_number": 10,
+  "total_recordings": 10,
+  "position_id": "P1",
+  "x_cm": null,
+  "y_cm": null,
+  "phone_height_cm": null,
+  "file_size_bytes": 466988,
+  "created_at": "2026-10-30T05:21:16.072753"
+}
